@@ -1,0 +1,7 @@
+[task-11] 信仰点按层级稳定产出
+EXIT=0
+
+SMOKE_START|task=task11|scenario=minimal_deity_loop|seed=42|days=4
+CASE|scenario=task11_faith_income|shallow_count=2|believer_count=3|fervent_count=2|shallow_gain=2|believer_gain=6|fervent_gain=8|total_gain=16
+ASSERT|scenario=task11_deity_loop|tier_ok=true|intervention_ok=true|faith_balanced=true|faith_current=51|faith_generated=64|faith_spent=19|favored_intervention=blessing|favored_target_tier=fervent_believer
+SUMMARY|task=task11|scenario=minimal_deity_loop|failed=false|message=task11 最小神明循环验证通过

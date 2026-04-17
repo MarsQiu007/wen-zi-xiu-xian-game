@@ -1,0 +1,6 @@
+[task-11] 神明干预存在明确差异
+EXIT=0
+
+SMOKE_START|task=task11|scenario=minimal_deity_loop|seed=42|days=4
+CASE|scenario=task11_interventions|types=3|favored_seen=true|target_bias_seen=true|favored_intervention=blessing|favored_target_tier=fervent_believer
+SUMMARY|task=task11|scenario=minimal_deity_loop|failed=false|message=task11 最小神明循环验证通过

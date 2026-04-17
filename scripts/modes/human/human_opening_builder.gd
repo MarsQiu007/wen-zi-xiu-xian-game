@@ -108,11 +108,14 @@ static func build_opening(catalog: Resource, opening_type: String, options: Dict
 		"inheritance_priority": int(options.get("inheritance_priority", int(_resource_get(base_character, "inheritance_priority", 0)))),
 		"is_alive": true,
 	}
+	base_player = _normalize_runtime_character(base_player, options)
 	var registry := _build_character_registry(catalog, options, base_player)
 	var current_player_id := str(options.get("current_player_id", str(base_player.get("id", "human_player"))))
 	var player: Dictionary = base_player.duplicate(true)
 	if registry.has(current_player_id):
 		player = (registry[current_player_id] as Dictionary).duplicate(true)
+	var player_gate: Dictionary = (player.get("cultivation_gate", {}) as Dictionary).duplicate(true)
+	var player_state: Dictionary = (player.get("cultivation_state", {}) as Dictionary).duplicate(true)
 	return {
 		"opening_type": normalized,
 		"opening_label": str(preset.get("label", "少年")),
@@ -131,12 +134,8 @@ static func build_opening(catalog: Resource, opening_type: String, options: Dict
 		"pressures": (preset.get("pressures", {}) as Dictionary).duplicate(true),
 		"branch_weights": branch_weights,
 		"dominant_branch": strategy,
-		"cultivation_gate": {
-			"contact_score": 0,
-			"has_active_contact": false,
-			"opportunity_unlocked": false,
-			"last_contact_action": "",
-		},
+		"cultivation_gate": player_gate,
+		"cultivation_state": player_state,
 		"recent_actions": [],
 		"strategy": strategy,
 		"action_plan": action_plan,
@@ -194,6 +193,7 @@ static func _build_character_registry(catalog: Resource, options: Dictionary, ba
 				"inheritance_priority": int(_resource_get(character, "inheritance_priority", 0)),
 				"is_alive": true,
 			}
+			registry[character_id] = _normalize_runtime_character(registry[character_id], options)
 	registry[str(base_player.get("id", "human_player"))] = base_player.duplicate(true)
 	var runtime_characters: Variant = options.get("runtime_characters", [])
 	if runtime_characters is Array:
@@ -216,8 +216,48 @@ static func _build_character_registry(catalog: Resource, options: Dictionary, ba
 			existing["legal_heir_character_id"] = str(existing.get("legal_heir_character_id", ""))
 			existing["inheritance_priority"] = int(existing.get("inheritance_priority", 0))
 			existing["is_alive"] = bool(existing.get("is_alive", true))
-			registry[character_id] = existing
+			registry[character_id] = _normalize_runtime_character(existing, options)
 	return registry
+
+
+static func _normalize_runtime_character(character: Dictionary, options: Dictionary) -> Dictionary:
+	var normalized: Dictionary = character.duplicate(true)
+	normalized["cultivation_gate"] = _normalize_cultivation_gate(normalized.get("cultivation_gate", options.get("cultivation_gate", {})))
+	normalized["cultivation_state"] = _normalize_cultivation_state(normalized, normalized.get("cultivation_state", options.get("cultivation_state", {})))
+	return normalized
+
+
+static func _normalize_cultivation_gate(raw_gate: Variant) -> Dictionary:
+	var source: Dictionary = raw_gate.duplicate(true) if raw_gate is Dictionary else {}
+	return {
+		"contact_score": int(source.get("contact_score", 0)),
+		"has_active_contact": bool(source.get("has_active_contact", false)),
+		"opportunity_unlocked": bool(source.get("opportunity_unlocked", false)),
+		"last_contact_action": str(source.get("last_contact_action", "")),
+	}
+
+
+static func _normalize_cultivation_state(character: Dictionary, raw_state: Variant) -> Dictionary:
+	var source: Dictionary = raw_state.duplicate(true) if raw_state is Dictionary else {}
+	var age_years := int(character.get("age_years", 14))
+	var lifespan_limit := int(source.get("lifespan_limit_years", maxi(60, age_years + 40)))
+	var lifespan_remaining := int(source.get("lifespan_remaining_years", maxi(0, lifespan_limit - age_years)))
+	return {
+		"realm": str(source.get("realm", "mortal")),
+		"realm_label": str(source.get("realm_label", "凡体")),
+		"stage_index": int(source.get("stage_index", 0)),
+		"progress": int(source.get("progress", 0)),
+		"progress_to_next": int(source.get("progress_to_next", 2)),
+		"practice_days": int(source.get("practice_days", 0)),
+		"breakthrough_attempts": int(source.get("breakthrough_attempts", 0)),
+		"setback_count": int(source.get("setback_count", 0)),
+		"weakness_days": int(source.get("weakness_days", 0)),
+		"lifespan_limit_years": lifespan_limit,
+		"lifespan_remaining_years": lifespan_remaining,
+		"last_breakthrough_outcome": str(source.get("last_breakthrough_outcome", "")),
+		"last_failure_reason": str(source.get("last_failure_reason", "")),
+		"last_event": str(source.get("last_event", "")),
+	}
 
 
 static func _resolve_inheritance_rule(catalog: Resource, family_id: String) -> String:

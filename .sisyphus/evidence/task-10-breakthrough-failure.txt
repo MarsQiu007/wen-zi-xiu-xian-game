@@ -1,0 +1,6 @@
+[task-10] 冲关失败会留下代价
+EXIT=0
+
+SMOKE_START|task=task10|scenario=minimal_closure|seed=42
+ASSERT|scenario=task10_breakthrough_failure|failed_breakthrough=true|weakness_days=2|lifespan_remaining=63|failure_log=true
+SUMMARY|task=task10|scenario=minimal_closure|failed=false|message=task10 最小闭环验证通过

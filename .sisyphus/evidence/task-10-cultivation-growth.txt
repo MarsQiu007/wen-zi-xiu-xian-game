@@ -1,0 +1,7 @@
+[task-10] 从凡体到炼气的成长可达成
+EXIT=0
+
+SMOKE_START|task=task10|scenario=minimal_closure|seed=42
+ASSERT|scenario=task10_unlock_then_grow|unlocked=true|realm=炼气一层|stage_index=1|lifespan_remaining=66
+ASSERT|scenario=task10_inheritance_continuity|current_player=task10_heir|realm=炼气一层|stage_index=1
+SUMMARY|task=task10|scenario=minimal_closure|failed=false|message=task10 最小闭环验证通过

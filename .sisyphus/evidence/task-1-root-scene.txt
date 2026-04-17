@@ -1,0 +1,4 @@
+验证结果：
+- 主入口场景已配置为 `res://scenes/main/game_root.tscn`。
+- `GameRoot` 作为根节点，子节点包含 `SimulationRunner` 与 `UIRoot`。
+- `SimulationRunner`、`UIRoot` 均已拆分为独立场景并由主入口实例化。

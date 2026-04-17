@@ -1,0 +1,41 @@
+{
+  "active_plan": "/home/mars/codes/games/wen-zi-xiu-xian-game/.sisyphus/plans/文字修仙沙盒游戏首版-mvp-规划.md",
+  "started_at": "2026-04-16T23:29:57.191Z",
+  "session_ids": [
+    "ses_26e7768c2ffe8GVlTsCGQ8UBun"
+  ],
+  "session_origins": {
+    "ses_26e7768c2ffe8GVlTsCGQ8UBun": "direct"
+  },
+  "plan_name": "文字修仙沙盒游戏首版-mvp-规划",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "搭建 Godot 项目骨架与 Autoload 框架",
+      "session_id": "ses_2675d8d20ffeWMcWABA2a5VIaq",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-16T23:34:35.308Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "设计世界/角色/势力 Resource 数据层",
+      "session_id": "ses_26758a120ffe05akLJJvN7AWWL",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-04-16T23:41:15.142Z"
+    },
+    "todo:3": {
+      "task_key": "todo:3",
+      "task_label": "3",
+      "task_title": "实现时间推进、事件日志、固定种子骨架",
+      "session_id": "ses_267537f6affercD1aBq4KLVTgn",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-04-16T23:54:55.209Z"
+    }
+  }
+}

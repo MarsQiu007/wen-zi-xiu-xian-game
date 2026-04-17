@@ -1,0 +1,10 @@
+[task-2] 双模式共享读取验证
+
+同一批底层 Resource 同时具备：
+- 人类模式可见字段：家族、继承、区域、势力、教义
+- 神明模式可见字段：信仰、神谕、教团雏形、神格归属
+
+验证结果：
+- `human_visible` / `deity_visible` 在样例中均可由同一资源对象读取
+- 角色样例 `mvp_village_heir` 与 `mvp_divine_visionary` 都携带模式共用字段与模式解释字段
+- 教义/神格样例与势力/区域样例共享 `id`、`display_name`、`summary`、`tags` 等基础字段

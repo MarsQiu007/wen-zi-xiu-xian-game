@@ -1,0 +1,7 @@
+[task-4] 势力落点事件钩子验证
+EXIT=0
+
+ENTRY|id=evt_0003|day=1|minute=0|category=festival|title=秋收祭|actors=mvp_divine_visionary|cause=harvest_complete|result=沈清徽 在 清河城 遭遇 秋收祭，受 harvest_complete 驱动，与 护灯教团雏形 发生联系，让后续选择变得更明确。|pause=false|trace=actor_id:mvp_divine_visionary,day:1,faction_id:mvp_divine_cult,region_id:mvp_small_city_region,roll:20,seed:42,template_id:mvp_harvest_festival
+ENTRY|id=evt_0004|day=2|minute=0|category=selection|title=宗门招收|actors=mvp_divine_visionary|cause=talent_check|result=沈清徽 在 清河城 遭遇 宗门招收，受 talent_check 驱动，与 护灯教团雏形 发生联系，让后续选择变得更明确。|pause=true|trace=actor_id:mvp_divine_visionary,day:2,faction_id:mvp_divine_cult,region_id:mvp_small_city_region,roll:56,seed:42,template_id:mvp_sect_recruitment
+ENTRY|id=evt_0006|day=3|minute=0|category=festival|title=秋收祭|actors=mvp_village_heir|cause=season_change|result=林予安 在 清河村 遭遇 秋收祭，受 season_change 驱动，与 清河村镇 发生联系，获得了稳定反馈。|pause=false|trace=actor_id:mvp_village_heir,day:3,faction_id:mvp_village_settlement,region_id:mvp_village_region,roll:9,seed:42,template_id:mvp_harvest_festival
+SUMMARY|seed=42|requested_days=7|advanced_days=7|resolved_days=7|total_minutes=10080|entries=12|paused=true|pause_title=宗门招收|pause_count=3

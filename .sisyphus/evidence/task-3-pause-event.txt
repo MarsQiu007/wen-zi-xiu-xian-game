@@ -1,0 +1,12 @@
+[task-3] 关键事件暂停验证
+EXIT=0
+
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+
+SMOKE_START|seed=42|days=2|stop_on_pause=true|auto_resolve_pause=false
+ENTRY|id=evt_0001|day=1|minute=0|category=system|title=模拟已重置|actors=|cause=reset_simulation|result=固定种子 42 已装载，运行时角色 2 名。|pause=false|trace=character_count:2,seed:42
+ENTRY|id=evt_0002|day=1|minute=0|category=system|title=SimulationRunner 已就绪|actors=|cause=system_note|result=SimulationRunner 已就绪|pause=false|trace=
+ENTRY|id=evt_0003|day=1|minute=0|category=festival|title=秋收祭|actors=mvp_divine_visionary|cause=harvest_complete|result=沈清徽 在 清河城 遭遇 秋收祭，受 harvest_complete 驱动，与 护灯教团雏形 发生联系，让后续选择变得更明确。|pause=false|trace=actor_id:mvp_divine_visionary,day:1,faction_id:mvp_divine_cult,region_id:mvp_small_city_region,roll:20,seed:42,template_id:mvp_harvest_festival
+ENTRY|id=evt_0004|day=2|minute=0|category=selection|title=宗门招收|actors=mvp_divine_visionary|cause=talent_check|result=沈清徽 在 清河城 遭遇 宗门招收，受 talent_check 驱动，与 护灯教团雏形 发生联系，让后续选择变得更明确。|pause=true|trace=actor_id:mvp_divine_visionary,day:2,faction_id:mvp_divine_cult,region_id:mvp_small_city_region,roll:56,seed:42,template_id:mvp_sect_recruitment
+PAUSE|day=2|title=宗门招收|cause=talent_check|result=沈清徽 在 清河城 遭遇 宗门招收，受 talent_check 驱动，与 护灯教团雏形 发生联系，让后续选择变得更明确。
+SUMMARY|seed=42|requested_days=2|advanced_days=2|resolved_days=2|total_minutes=2880|entries=4|paused=true|pause_title=宗门招收|pause_count=1

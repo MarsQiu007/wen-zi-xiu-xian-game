@@ -1,0 +1,11 @@
+[task-6] 统一 smoke runner 双模式验证
+EXIT_HUMAN=0
+EXIT_DEITY=0
+
+--- HUMAN ---
+SMOKE_START|task=day_tick|mode=human|seed=42|days=3|stop_on_pause=false|auto_resolve_pause=true
+SUMMARY|task=day_tick|mode=human|seed=42|requested_days=3|advanced_days=3|resolved_days=3|total_minutes=4320|entries=6|paused=true|pause_title=宗门招收|pause_count=1
+
+--- DEITY ---
+SMOKE_START|task=day_tick|mode=deity|seed=42|days=3|stop_on_pause=false|auto_resolve_pause=true
+SUMMARY|task=day_tick|mode=deity|seed=42|requested_days=3|advanced_days=3|resolved_days=3|total_minutes=4320|entries=6|paused=true|pause_title=宗门招收|pause_count=1

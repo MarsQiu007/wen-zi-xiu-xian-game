@@ -1,0 +1,21 @@
+[task-4] 活跃区域数据完整性验证
+EXIT=0
+
+REGION|id=mvp_village_region|type=village|control=mvp_village_settlement|parent=|sites=river_crossing,ancestral_hall|danger=bandit_pressure
+REGION|id=mvp_sect_mountain_region|type=sect_hub|control=mvp_small_sect|parent=|sites=outer_gate,lecture_hall|danger=beast_pressure
+REGION|id=mvp_small_city_region|type=city|control=mvp_small_city|parent=|sites=city_gate,market_square,county_office|danger=faction_tension
+REGION|id=mvp_beast_ridge_region|type=beast_zone|control=mvp_small_sect|parent=mvp_sect_mountain_region|sites=monster_trail,watch_post|danger=beast_pressure,predator_pack
+REGION|id=mvp_ghost_ruins_region|type=ghost_zone|control=mvp_small_city|parent=mvp_small_city_region|sites=collapsed_shrine,mass_grave|danger=ghost_presence,panic_spread
+REGION|id=mvp_secret_realm_gate_region|type=mystic_entrance|control=mvp_divine_cult|parent=mvp_small_city_region|sites=sealed_arch,omen_platform|danger=competition,unstable_gate
+REGION|id=mvp_deadfall_abyss_region|type=forbidden_zone|control=|parent=mvp_sect_mountain_region|sites=collapsed_stela,old_god_trace|danger=space_distortion,death_zone
+CHECK|region_type=village|label=村镇|count=1
+CHECK|region_type=sect_hub|label=小宗门|count=1
+CHECK|region_type=city|label=小城|count=1
+CHECK|region_type=beast_zone|label=妖兽活动区|count=1
+CHECK|region_type=ghost_zone|label=鬼怪异变点|count=1
+CHECK|region_type=mystic_entrance|label=秘境入口|count=1
+CHECK|region_type=forbidden_zone|label=绝地传闻点|count=1
+FACTION|id=mvp_village_settlement|hq=mvp_village_region|territories=mvp_village_region|summary=地方自治的村镇共同体，能为人类模式提供家族与生计背景。
+FACTION|id=mvp_small_sect|hq=mvp_sect_mountain_region|territories=mvp_sect_mountain_region,mvp_beast_ridge_region|summary=强调入门、门规与灵根筛选，负责镇守青岚山与裂脊妖岭，对护灯教团介入秘境入口保持警惕。
+FACTION|id=mvp_small_city|hq=mvp_small_city_region|territories=mvp_small_city_region,mvp_ghost_ruins_region|summary=负责交易、治安与区域行政，是村镇和宗门之间的枢纽，同时长期派人调查阴桥废村的鬼怪异变。
+FACTION|id=mvp_divine_cult|hq=mvp_small_city_region|territories=mvp_small_city_region,mvp_secret_realm_gate_region|summary=神明模式的最小组织载体，强调神谕、仪式与信仰传播，并试图借折镜秘境入口扩大影响力。

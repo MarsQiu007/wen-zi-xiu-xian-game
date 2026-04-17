@@ -1,0 +1,5 @@
+[task-3] 项目 headless 启动验证
+EXIT=0
+
+Godot Engine v4.6.1.stable.official.14d19694e - https://godotengine.org
+

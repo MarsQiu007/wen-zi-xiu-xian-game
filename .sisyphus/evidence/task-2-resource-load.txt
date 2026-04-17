@@ -1,0 +1,10 @@
+[task-2] 首版资源加载验证
+
+执行命令：
+"/home/mars/.local/bin/godot" --headless --path "/home/mars/codes/games/wen-zi-xiu-xian-game" --script res://scripts/dev/load_resources_smoke.gd
+
+结果：
+- 角色、家族、势力、区域、事件、教义、神格样例均成功加载
+- `WorldDataCatalog.validate_required_fields()` 通过
+- 目录汇总：characters=2 families=2 factions=4 regions=3 events=2 doctrines=2 deities=1
+- 退出码：0

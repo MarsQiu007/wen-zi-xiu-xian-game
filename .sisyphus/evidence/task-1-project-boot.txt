@@ -1,0 +1,4 @@
+验证结果：
+- 执行命令：`/home/mars/.local/bin/godot --headless --path . --quit`
+- 结果：Godot 4.6.1.stable 启动成功并正常退出，退出码为 0。
+- 观察：未出现 Parser Error、Autoload 缺失或主场景加载失败。

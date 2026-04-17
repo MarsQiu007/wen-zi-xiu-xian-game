@@ -264,7 +264,9 @@ func _resolve_human_mode_day(simulated_day: int) -> void:
 	var player: Dictionary = _human_runtime.get("player", {})
 	var pressures: Dictionary = _human_runtime.get("pressures", {})
 	var cultivation_gate: Dictionary = _human_runtime.get("cultivation_gate", {})
+	var cultivation_state: Dictionary = _human_runtime.get("cultivation_state", {})
 	var action: Dictionary = resolution.get("action", {})
+	var cultivation: Dictionary = resolution.get("cultivation", {})
 	if bool(resolution.get("death_triggered", false)):
 		_log_human_death_resolution(simulated_day, resolution)
 		if bool(resolution.get("termination_triggered", false)):
@@ -297,6 +299,16 @@ func _resolve_human_mode_day(simulated_day: int) -> void:
 			"cultivation_pressure": int(pressures.get("cultivation", 0)),
 			"cultivation_contact_score": int(cultivation_gate.get("contact_score", 0)),
 			"cultivation_opportunity_unlocked": bool(cultivation_gate.get("opportunity_unlocked", false)),
+			"cultivation_realm": str(cultivation_state.get("realm", "mortal")),
+			"cultivation_stage_label": str(cultivation_state.get("realm_label", "凡体")),
+			"cultivation_stage_index": int(cultivation_state.get("stage_index", 0)),
+			"cultivation_progress": int(cultivation_state.get("progress", 0)),
+			"cultivation_progress_to_next": int(cultivation_state.get("progress_to_next", 0)),
+			"cultivation_practice_days": int(cultivation_state.get("practice_days", 0)),
+			"cultivation_weakness_days": int(cultivation_state.get("weakness_days", 0)),
+			"cultivation_setback_count": int(cultivation_state.get("setback_count", 0)),
+			"cultivation_lifespan_remaining_years": int(cultivation_state.get("lifespan_remaining_years", 0)),
+			"cultivation_last_breakthrough": str(cultivation_state.get("last_breakthrough_outcome", "")),
 			"recent_action": str(action.get("action_id", "")),
 		},
 	})
@@ -317,6 +329,71 @@ func _resolve_human_mode_day(simulated_day: int) -> void:
 				"cultivation_opportunity_unlocked": true,
 			},
 		})
+	if not bool(cultivation.get("blocked", true)):
+		_log_human_cultivation_update(simulated_day, action, cultivation)
+
+
+func _log_human_cultivation_update(simulated_day: int, action: Dictionary, cultivation: Dictionary) -> void:
+	var player: Dictionary = _human_runtime.get("player", {})
+	var state: Dictionary = cultivation.get("state", {})
+	var gate: Dictionary = cultivation.get("gate", {})
+	var event_type := str(cultivation.get("event_type", ""))
+	if event_type.is_empty():
+		return
+	var title := "%s 的修炼进展" % str(player.get("display_name", "主角"))
+	var result := "%s 继续摸索气感。" % str(player.get("display_name", "主角"))
+	match event_type:
+		"enter_qi_training":
+			title = "%s 踏入炼气" % str(player.get("display_name", "主角"))
+			result = "%s 在机缘开启后成功引气入体，正式踏入%s。" % [str(player.get("display_name", "主角")), str(state.get("realm_label", "炼气一层"))]
+		"qi_training_progress":
+			result = "%s 稳定吐纳，当前%s 进度 %d/%d，余寿约 %d 年。" % [
+				str(player.get("display_name", "主角")),
+				str(state.get("realm_label", "炼气一层")),
+				int(state.get("progress", 0)),
+				int(state.get("progress_to_next", 0)),
+				int(state.get("lifespan_remaining_years", 0)),
+			]
+		"breakthrough_failed":
+			title = "%s 冲关受挫" % str(player.get("display_name", "主角"))
+			result = "%s 试图更进一步却因根基未稳而冲关受挫，留下%s，余寿降至 %d 年。" % [
+				str(player.get("display_name", "主角")),
+				str(state.get("last_failure_reason", "气血亏虚")),
+				int(state.get("lifespan_remaining_years", 0)),
+			]
+		"breakthrough_success":
+			title = "%s 冲关成功" % str(player.get("display_name", "主角"))
+			result = "%s 根基扎实，顺利突破至 %s。" % [str(player.get("display_name", "主角")), str(state.get("realm_label", "炼气二层"))]
+		"recovery":
+			result = "%s 因冲关余波暂缓修炼，仍在调养气血。" % str(player.get("display_name", "主角"))
+		_:
+			result = "%s 在机缘开启后继续尝试修炼。" % str(player.get("display_name", "主角"))
+	_event_log().add_event({
+		"category": "human_cultivation",
+		"title": title,
+		"actor_ids": [str(player.get("id", "human_player"))],
+		"related_ids": [str(player.get("sect_id", ""))],
+		"direct_cause": event_type,
+		"result": result,
+		"day": simulated_day,
+		"minute_of_day": _time_service().minute_of_day,
+		"trace": {
+			"action_id": str(action.get("action_id", "")),
+			"cultivation_realm": str(state.get("realm", "mortal")),
+			"cultivation_stage_label": str(state.get("realm_label", "凡体")),
+			"cultivation_stage_index": int(state.get("stage_index", 0)),
+			"cultivation_progress": int(state.get("progress", 0)),
+			"cultivation_progress_to_next": int(state.get("progress_to_next", 0)),
+			"cultivation_practice_days": int(state.get("practice_days", 0)),
+			"cultivation_weakness_days": int(state.get("weakness_days", 0)),
+			"cultivation_setback_count": int(state.get("setback_count", 0)),
+			"cultivation_contact_score": int(gate.get("contact_score", 0)),
+			"cultivation_lifespan_remaining_years": int(state.get("lifespan_remaining_years", 0)),
+			"cultivation_last_breakthrough": str(state.get("last_breakthrough_outcome", "")),
+			"cultivation_failure_reason": str(state.get("last_failure_reason", "")),
+			"cultivation_consequence": str(cultivation.get("consequence", "")),
+		},
+	})
 
 
 func _log_human_death_resolution(simulated_day: int, resolution: Dictionary) -> void:

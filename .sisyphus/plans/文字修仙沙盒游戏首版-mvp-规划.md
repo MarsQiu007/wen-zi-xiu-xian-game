@@ -734,7 +734,7 @@ Wave FINAL（并行验证）
   - Files: `scripts/modes/human/*`, `scripts/sim/*`, `resources/*`
   - Pre-commit: `godot4 --headless --path . --script res://scripts/dev/inheritance_smoke.gd`
 
-- [ ] 10. 实现修仙入门、炼气前后与突破失败雏形
+- [x] 10. 实现修仙入门、炼气前后与突破失败雏形
 
   **What to do**：
   - 实现凡人到炼气的修炼入口
@@ -764,9 +764,9 @@ Wave FINAL（并行验证）
   - `## 境界突破与失败后果（初稿）`
 
   **Acceptance Criteria**：
-  - [ ] 可从凡人进入炼气前后
-  - [ ] 炼气阶段寿命与修为变化可见
-  - [ ] 至少一种突破失败后果能稳定触发并写入日志
+  - [x] 可从凡人进入炼气前后
+  - [x] 炼气阶段寿命与修为变化可见
+  - [x] 至少一种突破失败后果能稳定触发并写入日志
 
   **QA Scenarios**：
   ```

@@ -49,3 +49,11 @@
 - 继承判定收敛为最小确定性规则：优先选择存活的 `direct_line_child_ids`，若不存在则回落到 `legal_heir_character_id`，否则终止人类模式视角。
 - 死亡与继承承接放在 `human_early_loop.gd` 内与日推进一并结算，`SimulationRunner` 只负责记录“承继视角/香火断绝”事件，避免把人类模式生命周期拆散到多个系统。
 - 任务 9 的验证继续复用统一 `scripts/dev/smoke_runner.gd`，新增 `task9` 入口和 `scripts/dev/task9_smoke.gd` 来覆盖关系区分、直系优先、法定继承兜底与无继承人终局四类最小场景。
+
+## 任务 10 架构决定
+
+- 任务 10 继续沿用 lightweight human runtime 字典，不引入完整境界树或独立修仙子系统；只新增 `cultivation_state` 与 `human_cultivation_progress.gd` 来完成凡体到早期炼气的最小闭环。
+- task8 的 `cultivation_gate.opportunity_unlocked` 仍然是修炼成长的唯一前置门槛；未解锁前不积累修炼日数，避免绕过“主动接触修仙圈层”这一既有设计。
+- 修炼成长首版只做到 `mortal -> qi_training`，并用 `realm / realm_label / stage_index / progress / progress_to_next / lifespan_remaining_years` 表示可见状态，不提前扩展高阶境界生态。
+- 突破失败后果首版固定收敛为“虚弱 + 寿元损失”的稳定组合，并通过 `last_failure_reason / weakness_days / lifespan_remaining_years / setback_count` 写入运行时与事件日志，优先保证可测试性。
+- 继承切换后通过 `sync_active_player_runtime()` 同步新主角的 `cultivation_gate / cultivation_state`，确保 task9 的单角色连续性不会被 task10 打断。

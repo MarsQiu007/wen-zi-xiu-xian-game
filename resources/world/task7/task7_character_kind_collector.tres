@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_character_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"task7_kind_collector"
+display_name = "许清宁"
+summary = "在同样的资源压力下，更倾向守规则地筹措药材。"
+tags = PackedStringArray("task7_ai", "focus_focused", "scenario_morality")
+human_visible = true
+deity_visible = true
+age_years = 24
+life_stage = &"adult"
+cultivation_stage = &"凡人"
+talent_rank = 2
+morality_tags = PackedStringArray("kind", "lawful")
+temperament_tags = PackedStringArray("calm")
+faith_affinity = 1
+role_tags = PackedStringArray("resource_seeker", "apothecary")
+life_goal_summary = "尽快筹措药材，稳住家中病患的疗养。"

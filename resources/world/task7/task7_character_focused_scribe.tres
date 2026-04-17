@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_character_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"task7_focused_scribe"
+display_name = "陆知序"
+summary = "被重点跟踪的账房抄录者，会每天细更。"
+tags = PackedStringArray("task7_ai", "focus_focused", "scenario_focus")
+human_visible = true
+deity_visible = true
+age_years = 28
+life_stage = &"adult"
+cultivation_stage = &"凡人"
+talent_rank = 1
+morality_tags = PackedStringArray("kind", "patient")
+temperament_tags = PackedStringArray("orderly")
+faith_affinity = 2
+role_tags = PackedStringArray("guardian", "scribe")
+life_goal_summary = "整理村学账册并维持乡里秩序。"

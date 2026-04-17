@@ -1,0 +1,17 @@
+[gd_resource type="Resource" load_steps=6 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_data_catalog.gd" id="1"]
+[ext_resource type="Resource" path="res://resources/world/task7/task7_character_kind_collector.tres" id="2"]
+[ext_resource type="Resource" path="res://resources/world/task7/task7_character_ruthless_collector.tres" id="3"]
+[ext_resource type="Resource" path="res://resources/world/task7/task7_character_focused_scribe.tres" id="4"]
+[ext_resource type="Resource" path="res://resources/world/task7/task7_character_background_scribe.tres" id="5"]
+
+[resource]
+script = ExtResource("1")
+characters = [ExtResource("2"), ExtResource("3"), ExtResource("4"), ExtResource("5")]
+families = []
+factions = []
+regions = []
+event_templates = []
+doctrines = []
+deities = []

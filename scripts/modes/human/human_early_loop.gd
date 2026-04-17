@@ -2,6 +2,7 @@ extends RefCounted
 class_name HumanEarlyLoop
 
 const HumanCultivationGateScript = preload("res://scripts/modes/human/human_cultivation_gate.gd")
+const HumanCultivationProgressScript = preload("res://scripts/modes/human/human_cultivation_progress.gd")
 
 const BRANCHES := ["survival", "family", "learning", "cultivation"]
 
@@ -120,9 +121,12 @@ static func advance_day(runtime: Dictionary, simulated_day: int) -> Dictionary:
 	_apply_pressure_deltas(next_runtime, action_def.get("pressure_deltas", {}))
 	var gate_resolution := HumanCultivationGateScript.apply_action(next_runtime, action_id, action_def)
 	next_runtime = gate_resolution.get("runtime", next_runtime)
+	var cultivation_resolution := HumanCultivationProgressScript.advance_day(next_runtime, simulated_day)
+	next_runtime = cultivation_resolution.get("runtime", next_runtime)
 	var dominant_branch := _select_dominant_branch(next_runtime)
 	next_runtime["dominant_branch"] = dominant_branch
 	next_runtime["day_count"] = simulated_day
+	var cultivation_state: Dictionary = next_runtime.get("cultivation_state", {})
 	var action_summary := {
 		"day": simulated_day,
 		"action_id": action_id,
@@ -130,6 +134,8 @@ static func advance_day(runtime: Dictionary, simulated_day: int) -> Dictionary:
 		"branch": str(action_def.get("branch", dominant_branch)),
 		"contact_gain": int(gate_resolution.get("contact_gain", 0)),
 		"dominant_branch": dominant_branch,
+		"cultivation_realm": str(cultivation_state.get("realm", "mortal")),
+		"cultivation_stage_label": str(cultivation_state.get("realm_label", "凡体")),
 	}
 	var recent_actions: Array = next_runtime.get("recent_actions", []).duplicate(true)
 	recent_actions.append(action_summary)
@@ -144,6 +150,7 @@ static func advance_day(runtime: Dictionary, simulated_day: int) -> Dictionary:
 		"death_triggered": false,
 		"termination_triggered": false,
 		"death_summary": {},
+		"cultivation": cultivation_resolution,
 	}
 
 
@@ -186,6 +193,8 @@ static func _resolve_forced_death(runtime: Dictionary, simulated_day: int) -> Di
 		runtime["character_registry"] = registry
 		runtime["player"] = deceased
 		runtime["current_player_id"] = ""
+		runtime["cultivation_gate"] = (deceased.get("cultivation_gate", {}) as Dictionary).duplicate(true)
+		runtime["cultivation_state"] = (deceased.get("cultivation_state", {}) as Dictionary).duplicate(true)
 		runtime["day_count"] = simulated_day
 		return {
 			"runtime": runtime,
@@ -215,6 +224,7 @@ static func _resolve_forced_death(runtime: Dictionary, simulated_day: int) -> Di
 	runtime["character_registry"] = registry
 	runtime["player"] = heir
 	runtime["current_player_id"] = heir_id
+	HumanCultivationProgressScript.sync_active_player_runtime(runtime)
 	runtime["day_count"] = simulated_day
 	return {
 		"runtime": runtime,

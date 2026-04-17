@@ -4,12 +4,19 @@ class_name SimulationRunner
 const DEFAULT_SEED := 42
 const CATALOG_PATH := "res://resources/world/world_data_catalog.tres"
 const SeededRandomScript = preload("res://scripts/sim/seeded_random.gd")
+const HumanModeRuntimeScript = preload("res://scripts/modes/human/human_mode_runtime.gd")
+
+const NEED_RESOURCE := &"resource_pressure"
+const NEED_STABILITY := &"stability"
+const NEED_REPUTATION := &"reputation"
+const NEED_BELONGING := &"belonging"
 
 signal bootstrapped
 signal day_resolved(report: Dictionary)
 signal pause_requested(checkpoint: Dictionary)
 
 var _catalog: Resource
+var _catalog_path: String = CATALOG_PATH
 var _random: RefCounted = SeededRandomScript.new()
 var _seed: int = DEFAULT_SEED
 var _runtime_characters: Array[Dictionary] = []
@@ -19,6 +26,10 @@ var _pause_count: int = 0
 var _event_log_node: Node
 var _time_service_node: Node
 var _run_state_node: Node
+var _task7_enabled: bool = false
+var _human_mode_runtime: RefCounted = HumanModeRuntimeScript.new()
+var _human_mode_options: Dictionary = {}
+var _human_runtime: Dictionary = {}
 
 
 func setup_services(time_service: Node, event_log: Node, run_state: Node) -> void:
@@ -28,7 +39,7 @@ func setup_services(time_service: Node, event_log: Node, run_state: Node) -> voi
 
 
 func bootstrap(seed: int = DEFAULT_SEED) -> void:
-	_catalog = load(CATALOG_PATH)
+	_catalog = load(_catalog_path)
 	reset_simulation(seed)
 	_event_log().add_entry("SimulationRunner 已就绪")
 	bootstrapped.emit()
@@ -41,6 +52,8 @@ func reset_simulation(seed: int = DEFAULT_SEED) -> void:
 	_pause_count = 0
 	_pending_checkpoint = {}
 	_runtime_characters = _build_runtime_characters()
+	_task7_enabled = _has_task7_fixture_characters()
+	_human_runtime = _build_human_runtime()
 	_time_service().reset_clock()
 	_event_log().clear()
 	_run_state().set_phase(&"ready")
@@ -52,6 +65,9 @@ func reset_simulation(seed: int = DEFAULT_SEED) -> void:
 		"trace": {
 			"seed": _seed,
 			"character_count": _runtime_characters.size(),
+			"catalog_path": _catalog_path,
+			"task7_enabled": _task7_enabled,
+			"human_opening_type": str(_human_runtime.get("opening_type", "")),
 		},
 	})
 
@@ -61,12 +77,29 @@ func configure_seed(seed: int) -> void:
 	_random.set_seed(seed)
 
 
+func configure_catalog_path(catalog_path: String) -> void:
+	_catalog_path = CATALOG_PATH if catalog_path.is_empty() else catalog_path
+	_catalog = null
+
+
+func configure_human_mode(options: Dictionary) -> void:
+	_human_mode_options = options.duplicate(true)
+
+
+func get_catalog_path() -> String:
+	return _catalog_path
+
+
 func get_seed() -> int:
 	return _seed
 
 
 func get_runtime_characters() -> Array[Dictionary]:
 	return _runtime_characters.duplicate(true)
+
+
+func get_human_runtime() -> Dictionary:
+	return _human_runtime.duplicate(true)
 
 
 func has_pending_pause() -> bool:
@@ -90,6 +123,7 @@ func advance_one_day(stop_on_pause: bool = true, auto_resolve_pause: bool = fals
 	_run_state().set_phase(&"simulating")
 	var day_report: Dictionary = _time_service().advance_day()
 	var simulated_day: int = int(day_report.get("completed_day", _time_service().get_completed_day()))
+	_resolve_human_mode_day(simulated_day)
 	var event_entry: Dictionary = _resolve_daily_event(simulated_day)
 	var report := {
 		"requested_days": 1,
@@ -187,6 +221,8 @@ func resolve_pending_checkpoint(choice_id: StringName = &"auto_continue") -> Dic
 
 
 func _resolve_daily_event(simulated_day: int) -> Dictionary:
+	if _task7_enabled:
+		_resolve_character_actions(simulated_day)
 	var template: Resource = _pick_event_template(simulated_day)
 	var actor: Dictionary = _pick_actor()
 	var region_id := str(actor.get("region_id", ""))
@@ -211,12 +247,70 @@ func _resolve_daily_event(simulated_day: int) -> Dictionary:
 			"seed": _seed,
 			"template_id": str(_resource_get(template, "id", "")),
 			"actor_id": str(actor.get("id", "")),
+			"focus_tier": str(actor.get("focus_state", {}).get("tier", "")),
 			"region_id": str(_resource_get(region, "id", "")) if region != null else "",
 			"faction_id": str(_resource_get(faction, "id", "")) if faction != null else "",
 			"roll": roll,
 			"day": simulated_day,
 		},
 	})
+
+
+func _resolve_human_mode_day(simulated_day: int) -> void:
+	if _human_runtime.is_empty():
+		return
+	var resolution: Dictionary = _human_mode_runtime.advance_day(_human_runtime, simulated_day)
+	_human_runtime = resolution.get("runtime", _human_runtime).duplicate(true)
+	var player: Dictionary = _human_runtime.get("player", {})
+	var pressures: Dictionary = _human_runtime.get("pressures", {})
+	var cultivation_gate: Dictionary = _human_runtime.get("cultivation_gate", {})
+	var action: Dictionary = resolution.get("action", {})
+	_event_log().add_event({
+		"category": "human_action",
+		"title": "%s 的凡俗抉择" % str(player.get("display_name", "主角")),
+		"actor_ids": [str(player.get("id", "human_player"))],
+		"related_ids": [
+			str(player.get("region_id", "")),
+			str(player.get("family_id", "")),
+			str(player.get("sect_id", "")),
+		],
+		"direct_cause": str(action.get("action_id", "human_daily_action")),
+		"result": "%s 选择了%s，当前主线偏向 %s。" % [
+			str(player.get("display_name", "主角")),
+			str(action.get("label", "凡俗行动")),
+			str(_human_runtime.get("dominant_branch", "survival")),
+		],
+		"day": simulated_day,
+		"minute_of_day": _time_service().minute_of_day,
+		"trace": {
+			"opening_type": str(_human_runtime.get("opening_type", "")),
+			"dominant_branch": str(_human_runtime.get("dominant_branch", "")),
+			"survival_pressure": int(pressures.get("survival", 0)),
+			"family_pressure": int(pressures.get("family", 0)),
+			"learning_pressure": int(pressures.get("learning", 0)),
+			"cultivation_pressure": int(pressures.get("cultivation", 0)),
+			"cultivation_contact_score": int(cultivation_gate.get("contact_score", 0)),
+			"cultivation_opportunity_unlocked": bool(cultivation_gate.get("opportunity_unlocked", false)),
+			"recent_action": str(action.get("action_id", "")),
+		},
+	})
+	if bool(resolution.get("unlocked_now", false)):
+		_event_log().add_event({
+			"category": "cultivation_opportunity",
+			"title": "%s 接近灵根测试门槛" % str(player.get("display_name", "主角")),
+			"actor_ids": [str(player.get("id", "human_player"))],
+			"related_ids": [str(player.get("sect_id", ""))],
+			"direct_cause": str(action.get("action_id", "active_contact")),
+			"result": "%s 因持续主动接触修仙圈层，已稳定获得灵根测试与入门机会。" % str(player.get("display_name", "主角")),
+			"day": simulated_day,
+			"minute_of_day": _time_service().minute_of_day,
+			"trace": {
+				"opening_type": str(_human_runtime.get("opening_type", "")),
+				"dominant_branch": str(_human_runtime.get("dominant_branch", "")),
+				"cultivation_contact_score": int(cultivation_gate.get("contact_score", 0)),
+				"cultivation_opportunity_unlocked": true,
+			},
+		})
 
 
 func _pick_event_template(simulated_day: int) -> Resource:
@@ -289,18 +383,276 @@ func _build_runtime_characters() -> Array[Dictionary]:
 	for character in resources:
 		if character == null:
 			continue
-		characters.append({
+		var runtime_character := {
 			"id": str(_resource_get(character, "id", "")),
 			"display_name": str(_resource_get(character, "display_name", "")),
+			"summary": str(_resource_get(character, "summary", "")),
+			"tags": _resource_get(character, "tags", PackedStringArray()),
 			"region_id": str(_resource_get(character, "region_id", "")),
 			"faction_id": str(_resource_get(character, "faction_id", "")),
 			"family_id": str(_resource_get(character, "family_id", "")),
 			"talent_rank": int(_resource_get(character, "talent_rank", 0)),
 			"faith_affinity": int(_resource_get(character, "faith_affinity", 0)),
+			"morality_tags": _resource_get(character, "morality_tags", PackedStringArray()),
+			"temperament_tags": _resource_get(character, "temperament_tags", PackedStringArray()),
 			"role_tags": _resource_get(character, "role_tags", PackedStringArray()),
 			"life_goal_summary": str(_resource_get(character, "life_goal_summary", "")),
-		})
+		}
+		runtime_character["morality_profile"] = _build_morality_profile(runtime_character)
+		runtime_character["focus_state"] = _build_focus_state(runtime_character)
+		runtime_character["need_scores"] = _build_initial_need_scores(runtime_character)
+		runtime_character["dominant_need"] = _select_dominant_need(runtime_character["need_scores"])
+		runtime_character["active_goal"] = _build_active_goal(runtime_character)
+		runtime_character["last_action"] = {
+			"intent": "idle",
+			"method": "observe",
+			"day": 0,
+		}
+		characters.append(runtime_character)
 	return characters
+
+
+func _build_human_runtime() -> Dictionary:
+	if _run_state() == null or _run_state().mode != &"human":
+		return {}
+	if _catalog == null:
+		return {}
+	return _human_mode_runtime.build_initial_state(_catalog, _human_mode_options)
+
+
+func _resolve_character_actions(simulated_day: int) -> void:
+	for index in range(_runtime_characters.size()):
+		var character: Dictionary = _runtime_characters[index]
+		if not _is_character_update_due(character, simulated_day):
+			continue
+		var focus_state: Dictionary = character.get("focus_state", {})
+		var stride_days := maxi(1, int(focus_state.get("stride_days", 1)))
+		var detail_level := "detailed" if str(focus_state.get("tier", "background")) == "focused" else "summary"
+		var need_scores: Dictionary = character.get("need_scores", {}).duplicate(true)
+		_apply_need_drift(character, need_scores, stride_days)
+		character["need_scores"] = need_scores
+		character["dominant_need"] = _select_dominant_need(need_scores)
+		character["active_goal"] = _build_active_goal(character)
+		var intent := _build_action_intent(character)
+		var method := _pick_action_method(character, intent)
+		character["last_action"] = {
+			"intent": intent,
+			"method": method,
+			"day": simulated_day,
+		}
+		focus_state["last_update_day"] = simulated_day
+		if detail_level == "detailed":
+			focus_state["last_detailed_day"] = simulated_day
+		character["focus_state"] = focus_state
+		_runtime_characters[index] = character
+		_event_log().add_event(_build_character_action_entry(character, simulated_day, intent, method, detail_level))
+
+
+func _is_character_update_due(character: Dictionary, simulated_day: int) -> bool:
+	var focus_state: Dictionary = character.get("focus_state", {})
+	var stride_days := maxi(1, int(focus_state.get("stride_days", 1)))
+	var last_update_day := int(focus_state.get("last_update_day", 0))
+	return simulated_day - last_update_day >= stride_days
+
+
+func _apply_need_drift(character: Dictionary, need_scores: Dictionary, step_days: int) -> void:
+	var role_tags: PackedStringArray = character.get("role_tags", PackedStringArray())
+	var faith_affinity := int(character.get("faith_affinity", 0))
+	var talent_rank := int(character.get("talent_rank", 0))
+	need_scores[NEED_RESOURCE] = int(need_scores.get(NEED_RESOURCE, 0)) + step_days * (2 if role_tags.has("resource_seeker") else 1)
+	need_scores[NEED_STABILITY] = int(need_scores.get(NEED_STABILITY, 0)) + step_days * (2 if role_tags.has("guardian") else 1)
+	need_scores[NEED_REPUTATION] = int(need_scores.get(NEED_REPUTATION, 0)) + step_days * (1 + maxi(0, talent_rank - 1))
+	need_scores[NEED_BELONGING] = int(need_scores.get(NEED_BELONGING, 0)) + step_days * (2 if faith_affinity >= 3 else 1)
+
+
+func _build_character_action_entry(character: Dictionary, simulated_day: int, intent: String, method: String, detail_level: String) -> Dictionary:
+	var morality_profile: Dictionary = character.get("morality_profile", {})
+	var active_goal: Dictionary = character.get("active_goal", {})
+	var dominant_need := str(character.get("dominant_need", ""))
+	var actor_id := str(character.get("id", ""))
+	var actor_name := str(character.get("display_name", "无名氏"))
+	return {
+		"category": "npc_action",
+		"title": "%s 采取行动" % actor_name,
+		"actor_ids": [actor_id],
+		"direct_cause": "task7_npc_intent",
+		"result": _build_character_action_text(character, intent, method, detail_level),
+		"day": simulated_day,
+		"minute_of_day": _time_service().minute_of_day,
+		"trace": {
+			"actor_id": actor_id,
+			"need_key": dominant_need,
+			"goal_id": str(active_goal.get("id", "")),
+			"intent": intent,
+			"method": method,
+			"morality_style": str(morality_profile.get("style", "neutral")),
+			"focus_tier": str(character.get("focus_state", {}).get("tier", "background")),
+			"detail_level": detail_level,
+		},
+	}
+
+
+func _build_character_action_text(character: Dictionary, intent: String, method: String, detail_level: String) -> String:
+	var actor_name := str(character.get("display_name", "无名氏"))
+	var active_goal: Dictionary = character.get("active_goal", {})
+	var goal_summary := str(active_goal.get("summary", "维持当前处境"))
+	if detail_level == "detailed":
+		return "%s 因 %s 转向 %s，并决定以 %s 落地。" % [actor_name, goal_summary, intent, method]
+	return "%s 围绕 %s 进行了批量推进，手段为 %s。" % [actor_name, str(active_goal.get("direction", intent)), method]
+
+
+func _build_morality_profile(character: Dictionary) -> Dictionary:
+	var morality_tags: PackedStringArray = character.get("morality_tags", PackedStringArray())
+	var score := 0
+	var style := "neutral"
+	if morality_tags.has("kind") or morality_tags.has("devout") or morality_tags.has("lawful"):
+		score += 60
+		style = "principled"
+	if morality_tags.has("pragmatic") or morality_tags.has("patient"):
+		score += 10
+		if style == "neutral":
+			style = "pragmatic"
+	if morality_tags.has("ruthless") or morality_tags.has("cruel") or morality_tags.has("opportunistic"):
+		score -= 70
+		style = "ruthless"
+	return {
+		"score": clampi(score, -100, 100),
+		"style": style,
+	}
+
+
+func _build_focus_state(character: Dictionary) -> Dictionary:
+	var tags: PackedStringArray = character.get("tags", PackedStringArray())
+	var tier := "background"
+	var stride_days := 3
+	if tags.has("focus_focused"):
+		tier = "focused"
+		stride_days = 1
+	elif tags.has("focus_regular"):
+		tier = "regular"
+		stride_days = 2
+	return {
+		"tier": tier,
+		"stride_days": stride_days,
+		"last_update_day": 0,
+		"last_detailed_day": 0,
+	}
+
+
+func _build_initial_need_scores(character: Dictionary) -> Dictionary:
+	var role_tags: PackedStringArray = character.get("role_tags", PackedStringArray())
+	var faith_affinity := int(character.get("faith_affinity", 0))
+	return {
+		NEED_RESOURCE: 9 if role_tags.has("resource_seeker") else 5,
+		NEED_STABILITY: 8 if role_tags.has("guardian") else 4,
+		NEED_REPUTATION: 6 + int(character.get("talent_rank", 0)),
+		NEED_BELONGING: 5 + faith_affinity,
+	}
+
+
+func _select_dominant_need(need_scores: Dictionary) -> String:
+	var dominant_key := ""
+	var dominant_score := -999999
+	for key in need_scores.keys():
+		var score := int(need_scores.get(key, 0))
+		if score > dominant_score:
+			dominant_key = str(key)
+			dominant_score = score
+	return dominant_key
+
+
+func _build_active_goal(character: Dictionary) -> Dictionary:
+	var dominant_need := str(character.get("dominant_need", ""))
+	var life_goal_summary := str(character.get("life_goal_summary", "稳住当前生活"))
+	var role_tags: PackedStringArray = character.get("role_tags", PackedStringArray())
+	var direction := "维持节奏"
+	var goal_id := "goal_hold"
+	match dominant_need:
+		String(NEED_RESOURCE):
+			direction = "筹措资源"
+			goal_id = "goal_resource_stabilize"
+		String(NEED_STABILITY):
+			direction = "稳住局势"
+			goal_id = "goal_secure_position"
+		String(NEED_REPUTATION):
+			direction = "扩大声望"
+			goal_id = "goal_raise_reputation"
+		String(NEED_BELONGING):
+			direction = "维系关系"
+			goal_id = "goal_keep_allies"
+	if role_tags.has("scribe") and dominant_need == String(NEED_STABILITY):
+		direction = "整理秩序"
+		goal_id = "goal_order_records"
+	return {
+		"id": goal_id,
+		"summary": life_goal_summary,
+		"direction": direction,
+	}
+
+
+func _build_action_intent(character: Dictionary) -> String:
+	var role_tags: PackedStringArray = character.get("role_tags", PackedStringArray())
+	var dominant_need := str(character.get("dominant_need", ""))
+	match dominant_need:
+		String(NEED_RESOURCE):
+			return "secure_resources"
+		String(NEED_STABILITY):
+			if role_tags.has("scribe"):
+				return "stabilize_records"
+			return "protect_position"
+		String(NEED_REPUTATION):
+			return "raise_reputation"
+		String(NEED_BELONGING):
+			return "seek_support"
+		_:
+			return "hold_pattern"
+
+
+func _pick_action_method(character: Dictionary, intent: String) -> String:
+	var morality_style := str(character.get("morality_profile", {}).get("style", "neutral"))
+	match intent:
+		"secure_resources":
+			match morality_style:
+				"principled":
+					return "协商交换"
+				"ruthless":
+					return "强取截留"
+				_:
+					return "灰市周转"
+		"protect_position", "stabilize_records":
+			match morality_style:
+				"principled":
+					return "公开调解"
+				"ruthless":
+					return "威胁压制"
+				_:
+					return "私下施压"
+		"raise_reputation":
+			match morality_style:
+				"principled":
+					return "公开示范"
+				"ruthless":
+					return "操弄舆论"
+				_:
+					return "定向经营"
+		"seek_support":
+			match morality_style:
+				"principled":
+					return "求助盟友"
+				"ruthless":
+					return "操弄人情"
+				_:
+					return "试探接触"
+		_:
+			return "观察局势"
+
+
+func _has_task7_fixture_characters() -> bool:
+	for character in _runtime_characters:
+		var tags: PackedStringArray = character.get("tags", PackedStringArray())
+		if tags.has("task7_ai"):
+			return true
+	return false
 
 
 func _resource_get(resource: Resource, property_name: String, fallback: Variant) -> Variant:

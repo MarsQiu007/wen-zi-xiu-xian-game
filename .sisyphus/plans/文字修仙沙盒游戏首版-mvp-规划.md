@@ -795,7 +795,7 @@ Wave FINAL（并行验证）
   - Files: `scripts/sim/*`, `resources/*`
   - Pre-commit: `godot4 --headless --path . --script res://scripts/dev/cultivation_smoke.gd`
 
-- [ ] 11. 实现神明模式信仰点循环与神谕干预
+- [x] 11. 实现神明模式信仰点循环与神谕干预
 
   **What to do**：
   - 实现浅信徒 / 信徒 / 狂信徒的信仰点日收益
@@ -826,9 +826,9 @@ Wave FINAL（并行验证）
   - `## 修仙正统、神道异端与世界秩序关系（初稿）`
 
   **Acceptance Criteria**：
-  - [ ] 不同层级信徒可稳定产出信仰点
-  - [ ] 神明能用信仰点执行至少 3 类干预
-  - [ ] 神格倾向会影响神谕风格或目标偏好
+  - [x] 不同层级信徒可稳定产出信仰点
+  - [x] 神明能用信仰点执行至少 3 类干预
+  - [x] 神格倾向会影响神谕风格或目标偏好
 
   **QA Scenarios**：
   ```

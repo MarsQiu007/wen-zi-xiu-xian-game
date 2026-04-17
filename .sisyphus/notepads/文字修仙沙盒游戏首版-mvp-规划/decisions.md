@@ -57,3 +57,10 @@
 - 修炼成长首版只做到 `mortal -> qi_training`，并用 `realm / realm_label / stage_index / progress / progress_to_next / lifespan_remaining_years` 表示可见状态，不提前扩展高阶境界生态。
 - 突破失败后果首版固定收敛为“虚弱 + 寿元损失”的稳定组合，并通过 `last_failure_reason / weakness_days / lifespan_remaining_years / setback_count` 写入运行时与事件日志，优先保证可测试性。
 - 继承切换后通过 `sync_active_player_runtime()` 同步新主角的 `cultivation_gate / cultivation_state`，确保 task9 的单角色连续性不会被 task10 打断。
+
+## 任务 11 架构决定
+
+- 神明模式继续采用轻量运行时字典，不单独引入复杂教会战略层；先用 `faith / follower_tiers / intervention_cycle / last_income / last_intervention` 完成最小循环。
+- 三档信众收益、三种干预与神格偏好都应是确定性规则，而不是随机抽取；这样 smoke 才能同时证明“产出稳定”“干预可用”“偏好有效”。
+- 任务 11 的神明循环必须仍然受 `RunState.mode == deity` 约束，避免和 human 模式相互污染。
+- 运行时内建干预库采用函数生成，而不是常量内嵌复杂字符串数组，避免 Godot 4.6 对常量字典类型的兼容性坑。

@@ -82,6 +82,7 @@ static func build_opening(catalog: Resource, opening_type: String, options: Dict
 	var normalized := normalize_opening_type(opening_type)
 	var preset: Dictionary = OPENING_PRESETS.get(normalized, OPENING_PRESETS["youth"])
 	var base_character := _pick_base_character(catalog)
+	var base_character_id := str(_resource_get(base_character, "id", ""))
 	var strategy := str(options.get("strategy", ""))
 	if strategy.is_empty():
 		strategy = str(preset.get("strategy", "learning"))
@@ -90,21 +91,43 @@ static func build_opening(catalog: Resource, opening_type: String, options: Dict
 		branch_weights["cultivation"] = int(branch_weights.get("cultivation", 0)) + 8
 		branch_weights["learning"] = maxi(0, int(branch_weights.get("learning", 0)) - 2)
 	var action_plan := _normalize_action_plan(options.get("action_plan", []))
-	var player := {
+	var base_player := {
 		"id": str(options.get("player_id", str(_resource_get(base_character, "id", "human_player")))),
 		"display_name": str(options.get("player_name", str(_resource_get(base_character, "display_name", "凡俗主角")))),
-		"base_character_id": str(_resource_get(base_character, "id", "")),
+		"base_character_id": base_character_id,
 		"age_years": int(options.get("age_years", int(preset.get("age_years", 14)))),
 		"life_stage": str(preset.get("life_stage", normalized)),
 		"region_id": str(options.get("region_id", str(_resource_get(base_character, "region_id", str(DEFAULT_REGION_ID))))),
 		"family_id": str(options.get("family_id", str(_resource_get(base_character, "family_id", str(DEFAULT_FAMILY_ID))))),
 		"faction_id": str(options.get("faction_id", str(_resource_get(base_character, "faction_id", str(DEFAULT_FACTION_ID))))),
 		"sect_id": str(options.get("sect_id", str(DEFAULT_SECT_ID))),
+		"spouse_character_id": str(options.get("spouse_character_id", str(_resource_get(base_character, "spouse_character_id", "")))),
+		"dao_companion_character_id": str(options.get("dao_companion_character_id", str(_resource_get(base_character, "dao_companion_character_id", "")))),
+		"direct_line_child_ids": _coerce_string_array(options.get("direct_line_child_ids", _resource_get(base_character, "direct_line_child_ids", PackedStringArray()))),
+		"legal_heir_character_id": str(options.get("legal_heir_character_id", str(_resource_get(base_character, "legal_heir_character_id", "")))),
+		"inheritance_priority": int(options.get("inheritance_priority", int(_resource_get(base_character, "inheritance_priority", 0)))),
+		"is_alive": true,
 	}
+	var registry := _build_character_registry(catalog, options, base_player)
+	var current_player_id := str(options.get("current_player_id", str(base_player.get("id", "human_player"))))
+	var player: Dictionary = base_player.duplicate(true)
+	if registry.has(current_player_id):
+		player = (registry[current_player_id] as Dictionary).duplicate(true)
 	return {
 		"opening_type": normalized,
 		"opening_label": str(preset.get("label", "少年")),
 		"player": player,
+		"current_player_id": str(player.get("id", current_player_id)),
+		"character_registry": registry,
+		"lineage": {
+			"active_character_id": str(player.get("id", current_player_id)),
+			"founding_character_id": str(base_player.get("id", "human_player")),
+			"inheritance_rule": str(options.get("inheritance_rule", _resolve_inheritance_rule(catalog, str(player.get("family_id", ""))))),
+			"last_death": {},
+			"terminated": false,
+			"termination_reason": "",
+			"perspective_history": [str(player.get("id", current_player_id))],
+		},
 		"pressures": (preset.get("pressures", {}) as Dictionary).duplicate(true),
 		"branch_weights": branch_weights,
 		"dominant_branch": strategy,
@@ -117,6 +140,7 @@ static func build_opening(catalog: Resource, opening_type: String, options: Dict
 		"recent_actions": [],
 		"strategy": strategy,
 		"action_plan": action_plan,
+		"forced_death_day": int(options.get("forced_death_day", 0)),
 		"day_count": 0,
 	}
 
@@ -140,6 +164,77 @@ static func _normalize_action_plan(raw_plan: Variant) -> Array[String]:
 	if raw_plan is Array:
 		for action_id in raw_plan:
 			result.append(str(action_id))
+	return result
+
+
+static func _build_character_registry(catalog: Resource, options: Dictionary, base_player: Dictionary) -> Dictionary:
+	var registry: Dictionary = {}
+	if catalog != null:
+		var characters: Array = catalog.get("characters") if catalog.has_method("get") else []
+		for character in characters:
+			if character == null:
+				continue
+			var character_id := str(_resource_get(character, "id", ""))
+			if character_id.is_empty():
+				continue
+			registry[character_id] = {
+				"id": character_id,
+				"display_name": str(_resource_get(character, "display_name", "无名氏")),
+				"base_character_id": character_id,
+				"age_years": int(_resource_get(character, "age_years", 0)),
+				"life_stage": str(_resource_get(character, "life_stage", "ordinary")),
+				"region_id": str(_resource_get(character, "region_id", "")),
+				"family_id": str(_resource_get(character, "family_id", "")),
+				"faction_id": str(_resource_get(character, "faction_id", "")),
+				"sect_id": str(options.get("sect_id", str(DEFAULT_SECT_ID))),
+				"spouse_character_id": str(_resource_get(character, "spouse_character_id", "")),
+				"dao_companion_character_id": str(_resource_get(character, "dao_companion_character_id", "")),
+				"direct_line_child_ids": _coerce_string_array(_resource_get(character, "direct_line_child_ids", PackedStringArray())),
+				"legal_heir_character_id": str(_resource_get(character, "legal_heir_character_id", "")),
+				"inheritance_priority": int(_resource_get(character, "inheritance_priority", 0)),
+				"is_alive": true,
+			}
+	registry[str(base_player.get("id", "human_player"))] = base_player.duplicate(true)
+	var runtime_characters: Variant = options.get("runtime_characters", [])
+	if runtime_characters is Array:
+		for raw_character in runtime_characters:
+			if not (raw_character is Dictionary):
+				continue
+			var character_id := str(raw_character.get("id", ""))
+			if character_id.is_empty():
+				continue
+			var existing: Dictionary = (registry.get(character_id, {}) as Dictionary).duplicate(true)
+			for key in raw_character.keys():
+				existing[key] = raw_character[key]
+			existing["id"] = character_id
+			existing["display_name"] = str(existing.get("display_name", character_id))
+			existing["base_character_id"] = str(existing.get("base_character_id", character_id))
+			existing["sect_id"] = str(existing.get("sect_id", str(options.get("sect_id", str(DEFAULT_SECT_ID)))))
+			existing["spouse_character_id"] = str(existing.get("spouse_character_id", ""))
+			existing["dao_companion_character_id"] = str(existing.get("dao_companion_character_id", ""))
+			existing["direct_line_child_ids"] = _coerce_string_array(existing.get("direct_line_child_ids", []))
+			existing["legal_heir_character_id"] = str(existing.get("legal_heir_character_id", ""))
+			existing["inheritance_priority"] = int(existing.get("inheritance_priority", 0))
+			existing["is_alive"] = bool(existing.get("is_alive", true))
+			registry[character_id] = existing
+	return registry
+
+
+static func _resolve_inheritance_rule(catalog: Resource, family_id: String) -> String:
+	if catalog == null or family_id.is_empty() or not catalog.has_method("find_family"):
+		return "direct_descendant_first"
+	var family: Resource = catalog.find_family(StringName(family_id))
+	return str(_resource_get(family, "inheritance_rule", "direct_descendant_first"))
+
+
+static func _coerce_string_array(raw_value: Variant) -> Array[String]:
+	var result: Array[String] = []
+	if raw_value is PackedStringArray:
+		for item in raw_value:
+			result.append(str(item))
+	elif raw_value is Array:
+		for item in raw_value:
+			result.append(str(item))
 	return result
 
 

@@ -265,6 +265,12 @@ func _resolve_human_mode_day(simulated_day: int) -> void:
 	var pressures: Dictionary = _human_runtime.get("pressures", {})
 	var cultivation_gate: Dictionary = _human_runtime.get("cultivation_gate", {})
 	var action: Dictionary = resolution.get("action", {})
+	if bool(resolution.get("death_triggered", false)):
+		_log_human_death_resolution(simulated_day, resolution)
+		if bool(resolution.get("termination_triggered", false)):
+			return
+	if bool(_human_runtime.get("lineage", {}).get("terminated", false)):
+		return
 	_event_log().add_event({
 		"category": "human_action",
 		"title": "%s 的凡俗抉择" % str(player.get("display_name", "主角")),
@@ -311,6 +317,49 @@ func _resolve_human_mode_day(simulated_day: int) -> void:
 				"cultivation_opportunity_unlocked": true,
 			},
 		})
+
+
+func _log_human_death_resolution(simulated_day: int, resolution: Dictionary) -> void:
+	var death_summary: Dictionary = resolution.get("death_summary", {})
+	var deceased_name := str(death_summary.get("deceased_name", "主角"))
+	var deceased_id := str(death_summary.get("deceased_id", "human_player"))
+	var heir_name := str(death_summary.get("heir_name", ""))
+	var heir_id := str(death_summary.get("heir_id", ""))
+	var reason := str(death_summary.get("reason", "none"))
+	if bool(resolution.get("termination_triggered", false)):
+		_event_log().add_event({
+			"category": "human_lineage",
+			"title": "%s 身死后香火断绝" % deceased_name,
+			"actor_ids": [deceased_id],
+			"related_ids": [],
+			"direct_cause": "human_protagonist_death",
+			"result": "%s 死后未找到可承接视角的继承人，人类模式单角色视角平稳终止。" % deceased_name,
+			"day": simulated_day,
+			"minute_of_day": _time_service().minute_of_day,
+			"trace": {
+				"deceased_id": deceased_id,
+				"heir_id": heir_id,
+				"inheritance_reason": reason,
+			},
+		})
+		return
+	_event_log().add_event({
+		"category": "human_lineage",
+		"title": "%s 身死后由 %s 承继视角" % [deceased_name, heir_name],
+		"actor_ids": [deceased_id, heir_id],
+		"related_ids": [str(_human_runtime.get("player", {}).get("family_id", ""))],
+		"direct_cause": "human_protagonist_death",
+		"result": "%s 死后，由 %s 依据 %s 承继家系与单角色视角。" % [deceased_name, heir_name, reason],
+		"day": simulated_day,
+		"minute_of_day": _time_service().minute_of_day,
+		"trace": {
+			"deceased_id": deceased_id,
+			"heir_id": heir_id,
+			"inheritance_reason": reason,
+			"used_direct_line": bool(death_summary.get("used_direct_line", false)),
+			"used_legal_heir": bool(death_summary.get("used_legal_heir", false)),
+		},
+	})
 
 
 func _pick_event_template(simulated_day: int) -> Resource:

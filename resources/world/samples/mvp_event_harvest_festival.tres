@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_event_template_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_harvest_festival"
+display_name = "秋收祭"
+summary = "围绕收成、感恩与村镇秩序的常规事件。"
+tags = PackedStringArray("settlement", "harvest", "shared")
+human_visible = true
+deity_visible = true
+event_type = &"festival"
+region_scope_tags = PackedStringArray("village", "city")
+required_actor_tags = PackedStringArray("villager", "household")
+required_faction_tags = PackedStringArray("settlement")
+trigger_tags = PackedStringArray("harvest_complete", "season_change")
+result_tags = PackedStringArray("gratitude", "stability")
+severity = 1
+key_participant_roles = PackedStringArray("host", "offerer", "observer")
+pause_behavior = &"auto"
+summary_template = "{region} 举办秋收祭，强化家族与区域秩序。"

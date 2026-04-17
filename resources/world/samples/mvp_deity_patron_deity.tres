@@ -1,0 +1,20 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_deity_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_patron_deity"
+display_name = "护灯神"
+summary = "首版神明模式可供信奉的地方守护神。"
+tags = PackedStringArray("deity", "guardian", "deity_mode")
+human_visible = true
+deity_visible = true
+deity_type = &"local_deity"
+domain_tags = PackedStringArray("protection", "harvest", "omens")
+worship_style_tags = PackedStringArray("shared_offering", "night_ritual")
+manifestation_tags = PackedStringArray("dreams", "lantern_signs")
+preferred_doctrine_id = &"mvp_divine_doctrine"
+faith_income_hint = 2
+manifestation_scope = &"local"
+divine_goal_summary = "通过稳定的祭仪与神眷者维持可见存在。"

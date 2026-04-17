@@ -1,0 +1,20 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_doctrine_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_divine_doctrine"
+display_name = "护灯仪轨"
+summary = "面向神眷、供奉与神谕传播的教义雏形。"
+tags = PackedStringArray("divine", "cult", "deity_mode")
+human_visible = true
+deity_visible = true
+doctrine_type = &"divine"
+authority_scope = &"local"
+associated_faction_id = &"mvp_divine_cult"
+associated_deity_id = &"mvp_patron_deity"
+core_tenets = PackedStringArray("立坛供奉", "神谕先行", "信众组织")
+taboo_tags = PackedStringArray("冒名神谕", "无祭传播")
+support_tags = PackedStringArray("faith", "omens", "ritual")
+doctrine_notes = "用于神明模式的教团雏形，不扩展到完整神教政治。"

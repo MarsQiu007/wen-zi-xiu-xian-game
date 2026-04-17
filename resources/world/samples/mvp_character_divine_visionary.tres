@@ -1,0 +1,25 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_character_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_divine_visionary"
+display_name = "沈清徽"
+summary = "对神谕高度敏感的神眷者候选。"
+tags = PackedStringArray("deity_mode", "visionary", "ritual_focused")
+human_visible = true
+deity_visible = true
+family_id = &"mvp_shen_family"
+faction_id = &"mvp_divine_cult"
+region_id = &"mvp_small_city_region"
+age_years = 21
+life_stage = &"adult"
+cultivation_stage = &"凡人"
+inheritance_priority = 0
+talent_rank = 3
+morality_tags = PackedStringArray("devout", "patient")
+temperament_tags = PackedStringArray("observant", "steadfast")
+faith_affinity = 5
+role_tags = PackedStringArray("seer_candidate", "future_devotee")
+life_goal_summary = "通过神谕与仪式建立稳定信众。"

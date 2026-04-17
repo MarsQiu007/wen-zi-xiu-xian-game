@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_region_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_beast_ridge_region"
+display_name = "裂脊妖岭"
+summary = "靠近青岚山外缘的妖兽活动区，长期向村镇与采药路线施压。"
+tags = PackedStringArray("beast_zone", "wild", "mountain_edge")
+human_visible = true
+deity_visible = true
+region_type = &"beast_zone"
+parent_region_id = &"mvp_sect_mountain_region"
+controlling_faction_id = &"mvp_small_sect"
+active_population_hint = 0
+resource_tags = PackedStringArray("beast_material", "herbs", "ore")
+danger_tags = PackedStringArray("beast_pressure", "predator_pack")
+key_site_tags = PackedStringArray("monster_trail", "watch_post")
+event_pool_id = &"mvp_beast_events"
+region_notes = "首版用于承载妖兽威胁、采集与宗门巡山事件。"

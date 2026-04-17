@@ -1,0 +1,25 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_character_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_village_heir"
+display_name = "林予安"
+summary = "村镇出身的继承候选，兼顾家族责任与求仙意愿。"
+tags = PackedStringArray("human_mode", "heir", "mortal", "sect_candidate")
+human_visible = true
+deity_visible = true
+family_id = &"mvp_lin_family"
+faction_id = &"mvp_village_settlement"
+region_id = &"mvp_village_region"
+age_years = 17
+life_stage = &"youth"
+cultivation_stage = &"凡人"
+inheritance_priority = 1
+talent_rank = 2
+morality_tags = PackedStringArray("kind", "pragmatic")
+temperament_tags = PackedStringArray("calm", "curious")
+faith_affinity = 1
+role_tags = PackedStringArray("candidate_heir", "potential_disciple")
+life_goal_summary = "保住家业并寻找入门修行的机会。"

@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_region_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_ghost_ruins_region"
+display_name = "阴桥废村"
+summary = "清河城外的鬼怪异变点，旧村荒废后常有阴气与怪谈聚集。"
+tags = PackedStringArray("ghost_zone", "haunt", "ruins")
+human_visible = true
+deity_visible = true
+region_type = &"ghost_zone"
+parent_region_id = &"mvp_small_city_region"
+controlling_faction_id = &"mvp_small_city"
+active_population_hint = 12
+resource_tags = PackedStringArray("grave_dust", "yin_wood", "remnant_relic")
+danger_tags = PackedStringArray("ghost_presence", "panic_spread")
+key_site_tags = PackedStringArray("collapsed_shrine", "mass_grave")
+event_pool_id = &"mvp_ghost_events"
+region_notes = "首版用于承载驱邪、调查、失踪与神迹误读事件。"

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_event_template_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_sect_recruitment"
+display_name = "宗门招收"
+summary = "宗门筛选凡人进入修行路径的事件。"
+tags = PackedStringArray("sect", "recruitment", "shared")
+human_visible = true
+deity_visible = true
+event_type = &"selection"
+region_scope_tags = PackedStringArray("village", "sect_hub", "city")
+required_actor_tags = PackedStringArray("candidate", "discipline")
+required_faction_tags = PackedStringArray("cultivation_sect")
+trigger_tags = PackedStringArray("talent_check", "sect_visit")
+result_tags = PackedStringArray("entry", "rejection", "opportunity")
+severity = 2
+key_participant_roles = PackedStringArray("disciple_recruiter", "candidate", "mentor")
+pause_behavior = &"require_choice"
+summary_template = "{faction} 在 {region} 进行招收，决定角色是否踏上修行路。"

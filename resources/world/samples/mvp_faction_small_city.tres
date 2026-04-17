@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_faction_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_small_city"
+display_name = "清河城"
+summary = "首版单活跃区域里的小城公共势力。"
+tags = PackedStringArray("city", "civil", "human_mode")
+human_visible = true
+deity_visible = true
+faction_type = &"city"
+faction_tier = &"mortal"
+headquarters_region_id = &"mvp_small_city_region"
+associated_doctrine_id = &""
+patron_deity_id = &""
+influence = 4
+doctrine_alignment_tags = PackedStringArray("trade", "bureaucracy")
+territory_region_ids = PackedStringArray("mvp_small_city_region", "mvp_ghost_ruins_region")
+relations_summary = "负责交易、治安与区域行政，是村镇和宗门之间的枢纽，同时长期派人调查阴桥废村的鬼怪异变。"

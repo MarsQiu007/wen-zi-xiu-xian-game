@@ -1,0 +1,20 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_doctrine_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_orthodox_doctrine"
+display_name = "青岚正统"
+summary = "强调顺天、修心与门规的修仙正统。"
+tags = PackedStringArray("orthodox", "cultivation", "human_mode")
+human_visible = true
+deity_visible = true
+doctrine_type = &"orthodox"
+authority_scope = &"local"
+associated_faction_id = &"mvp_small_sect"
+associated_deity_id = &""
+core_tenets = PackedStringArray("顺天修行", "门规优先", "因果自守")
+taboo_tags = PackedStringArray("邪祭", "夺舍", "无序传法")
+support_tags = PackedStringArray("discipline", "inheritance", "talent_gate")
+doctrine_notes = "首版用来承接人类模式的求仙入口与宗门伦理。"

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_family_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_lin_family"
+display_name = "林氏"
+summary = "村镇里保守而务实的普通家族。"
+tags = PackedStringArray("human_mode", "lineage")
+human_visible = true
+deity_visible = true
+seat_region_id = &"mvp_village_region"
+patron_faction_id = &"mvp_village_settlement"
+inheritance_rule = &"direct_descendant_first"
+prestige = 1
+bloodline_strength = 1
+notable_member_ids = PackedStringArray("mvp_village_heir")
+legacy_notes = "优先保障直系继承，适合首版人类模式。"

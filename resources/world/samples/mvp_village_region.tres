@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_region_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_village_region"
+display_name = "清河村"
+summary = "村镇级常住区域，适合家族、生产与开局生活。"
+tags = PackedStringArray("village", "human_mode", "settlement")
+human_visible = true
+deity_visible = true
+region_type = &"village"
+parent_region_id = &""
+controlling_faction_id = &"mvp_village_settlement"
+active_population_hint = 1200
+resource_tags = PackedStringArray("grain", "timber", "fresh_water")
+danger_tags = PackedStringArray("bandit_pressure")
+key_site_tags = PackedStringArray("river_crossing", "ancestral_hall")
+event_pool_id = &"mvp_settlement_events"
+region_notes = "首版人类模式开局最常驻留的区域。"

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_family_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_shen_family"
+display_name = "沈氏"
+summary = "由祭仪和口耳相传维系的隐性家系。"
+tags = PackedStringArray("deity_mode", "ritual_lineage")
+human_visible = true
+deity_visible = true
+seat_region_id = &"mvp_small_city_region"
+patron_faction_id = &"mvp_divine_cult"
+inheritance_rule = &"ritual_inheritance"
+prestige = 2
+bloodline_strength = 2
+notable_member_ids = PackedStringArray("mvp_divine_visionary")
+legacy_notes = "更适合神眷者路线和教团雏形。"

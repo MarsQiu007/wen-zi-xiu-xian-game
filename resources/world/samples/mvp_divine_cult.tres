@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_faction_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_divine_cult"
+display_name = "护灯教团雏形"
+summary = "由神眷者发起的最小教团雏形。"
+tags = PackedStringArray("cult", "deity_mode", "ritual")
+human_visible = true
+deity_visible = true
+faction_type = &"cult"
+faction_tier = &"divine"
+headquarters_region_id = &"mvp_small_city_region"
+associated_doctrine_id = &"mvp_divine_doctrine"
+patron_deity_id = &"mvp_patron_deity"
+influence = 2
+doctrine_alignment_tags = PackedStringArray("faith", "omens")
+territory_region_ids = PackedStringArray("mvp_small_city_region", "mvp_secret_realm_gate_region")
+relations_summary = "神明模式的最小组织载体，强调神谕、仪式与信仰传播，并试图借折镜秘境入口扩大影响力。"

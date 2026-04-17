@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_region_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_small_city_region"
+display_name = "清河城"
+summary = "首版单活跃区域中的小城核心区。"
+tags = PackedStringArray("city", "human_mode", "trade")
+human_visible = true
+deity_visible = true
+region_type = &"city"
+parent_region_id = &""
+controlling_faction_id = &"mvp_small_city"
+active_population_hint = 8600
+resource_tags = PackedStringArray("market", "administration", "craft")
+danger_tags = PackedStringArray("faction_tension")
+key_site_tags = PackedStringArray("city_gate", "market_square", "county_office")
+event_pool_id = &"mvp_city_events"
+region_notes = "用于官府、商贸与宗门来往的区域中枢。"

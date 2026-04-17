@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_region_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_sect_mountain_region"
+display_name = "青岚山"
+summary = "宗门依山而立的修行区域。"
+tags = PackedStringArray("sect_hub", "cultivation", "mystic")
+human_visible = true
+deity_visible = true
+region_type = &"sect_hub"
+parent_region_id = &""
+controlling_faction_id = &"mvp_small_sect"
+active_population_hint = 160
+resource_tags = PackedStringArray("spirit_vein", "herbs", "stone")
+danger_tags = PackedStringArray("beast_pressure")
+key_site_tags = PackedStringArray("outer_gate", "lecture_hall")
+event_pool_id = &"mvp_sect_events"
+region_notes = "首版求仙路径与宗门招收的主要承载地。"

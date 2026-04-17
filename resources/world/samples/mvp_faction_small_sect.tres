@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_faction_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_small_sect"
+display_name = "青岚小宗"
+summary = "首版中最小可用的修仙宗门势力。"
+tags = PackedStringArray("sect", "cultivation", "orthodox")
+human_visible = true
+deity_visible = true
+faction_type = &"cultivation_sect"
+faction_tier = &"cultivation"
+headquarters_region_id = &"mvp_sect_mountain_region"
+associated_doctrine_id = &"mvp_orthodox_doctrine"
+patron_deity_id = &""
+influence = 3
+doctrine_alignment_tags = PackedStringArray("discipline", "orthodoxy")
+territory_region_ids = PackedStringArray("mvp_sect_mountain_region", "mvp_beast_ridge_region")
+relations_summary = "强调入门、门规与灵根筛选，负责镇守青岚山与裂脊妖岭，对护灯教团介入秘境入口保持警惕。"

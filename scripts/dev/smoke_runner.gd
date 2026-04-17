@@ -3,6 +3,8 @@ extends SceneTree
 const TASK_BOOT := "boot"
 const TASK_RESOURCES := "resources"
 const TASK_DAY_TICK := "day_tick"
+const TASK_TASK7 := "task7"
+const TASK_TASK8 := "task8"
 
 const MODE_HUMAN := "human"
 const MODE_DEITY := "deity"
@@ -13,6 +15,8 @@ const SIMULATION_RUNNER_SCENE_PATH := "res://scenes/sim/simulation_runner.tscn"
 const TIME_SERVICE_SCRIPT := preload("res://autoload/time_service.gd")
 const RUN_STATE_SCRIPT := preload("res://autoload/run_state.gd")
 const EVENT_LOG_SCRIPT := preload("res://autoload/event_log.gd")
+const TASK7_SMOKE_SCRIPT := preload("res://scripts/dev/task7_smoke.gd")
+const TASK8_SMOKE_SCRIPT := preload("res://scripts/dev/task8_smoke.gd")
 
 const SAMPLE_PATHS := {
 	"characters": [
@@ -58,6 +62,7 @@ func _initialize() -> void:
 	var mode := str(args.get("mode", MODE_HUMAN))
 	var seed := int(args.get("seed", 42))
 	var days := int(args.get("days", 10))
+	var scenario := str(args.get("scenario", "morality"))
 	var stop_on_pause := bool(args.get("stop-on-pause", false))
 	var auto_resolve_pause := bool(args.get("auto-resolve-pause", true))
 
@@ -68,8 +73,12 @@ func _initialize() -> void:
 			_run_resources_task()
 		TASK_DAY_TICK:
 			_run_day_tick_task(mode, seed, days, stop_on_pause, auto_resolve_pause)
+		TASK_TASK7:
+			_run_task7_task(scenario, seed, days)
+		TASK_TASK8:
+			_run_task8_task(scenario, seed, days)
 		_:
-			print("错误：未知任务 %s，可选值为 boot/resources/day_tick" % _sanitize(task))
+			print("错误：未知任务 %s，可选值为 boot/resources/day_tick/task7/task8" % _sanitize(task))
 			quit(1)
 
 
@@ -224,12 +233,59 @@ func _run_day_tick_task(mode: String, seed: int, days: int, stop_on_pause: bool,
 	quit(0)
 
 
+func _run_task7_task(scenario: String, seed: int, days: int) -> void:
+	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
+	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
+	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var time_service: Node = time_service_info.get("node")
+	var run_state: Node = run_state_info.get("node")
+	var event_log: Node = event_log_info.get("node")
+	var task7_smoke: RefCounted = TASK7_SMOKE_SCRIPT.new()
+	var result: Dictionary = task7_smoke.run(root, time_service, run_state, event_log, scenario, seed, days)
+	print("SUMMARY|task=task7|scenario=%s|failed=%s|message=%s" % [
+		_sanitize(scenario),
+		str(result.get("failed", true)),
+		_sanitize(str(result.get("message", ""))),
+	])
+	if bool(event_log_info.get("created", false)):
+		event_log.free()
+	if bool(run_state_info.get("created", false)):
+		run_state.free()
+	if bool(time_service_info.get("created", false)):
+		time_service.free()
+	quit(1 if bool(result.get("failed", true)) else 0)
+
+
+func _run_task8_task(scenario: String, seed: int, days: int) -> void:
+	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
+	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
+	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var time_service: Node = time_service_info.get("node")
+	var run_state: Node = run_state_info.get("node")
+	var event_log: Node = event_log_info.get("node")
+	var task8_smoke: RefCounted = TASK8_SMOKE_SCRIPT.new()
+	var result: Dictionary = task8_smoke.run(root, time_service, run_state, event_log, scenario, seed, days)
+	print("SUMMARY|task=task8|scenario=%s|failed=%s|message=%s" % [
+		_sanitize(scenario),
+		str(result.get("failed", true)),
+		_sanitize(str(result.get("message", ""))),
+	])
+	if bool(event_log_info.get("created", false)):
+		event_log.free()
+	if bool(run_state_info.get("created", false)):
+		run_state.free()
+	if bool(time_service_info.get("created", false)):
+		time_service.free()
+	quit(1 if bool(result.get("failed", true)) else 0)
+
+
 func _parse_args(raw_args: PackedStringArray) -> Dictionary:
 	var parsed := {
 		"task": TASK_BOOT,
 		"mode": MODE_HUMAN,
 		"seed": 42,
 		"days": 10,
+		"scenario": "morality",
 		"stop-on-pause": false,
 		"auto-resolve-pause": true,
 	}
@@ -243,7 +299,7 @@ func _parse_args(raw_args: PackedStringArray) -> Dictionary:
 		if parts.size() > 1:
 			value = parts[1]
 		match key:
-			"task", "mode":
+			"task", "mode", "scenario":
 				parsed[key] = value
 			"seed", "days":
 				parsed[key] = int(value)

@@ -1,0 +1,12 @@
+[gd_scene load_steps=3 format=3 uid="uid://game_root_scene"]
+
+[ext_resource type="Script" path="res://scripts/game_root.gd" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/ui/ui_root.tscn" id="2"]
+[ext_resource type="PackedScene" path="res://scenes/sim/simulation_runner.tscn" id="3"]
+
+[node name="GameRoot" type="Node"]
+script = ExtResource("1")
+
+[node name="SimulationRunner" parent="." instance=ExtResource("3")]
+
+[node name="UIRoot" parent="." instance=ExtResource("2")]

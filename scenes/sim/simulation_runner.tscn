@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://simulation_runner_scene"]
+
+[ext_resource type="Script" path="res://scripts/sim/simulation_runner.gd" id="1"]
+
+[node name="SimulationRunner" type="Node"]
+script = ExtResource("1")

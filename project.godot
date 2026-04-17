@@ -1,0 +1,22 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="文字修仙沙盒"
+run/main_scene="res://scenes/main/game_root.tscn"
+config/features=PackedStringArray("4.6")
+
+[autoload]
+
+TimeService="*res://autoload/time_service.gd"
+RunState="*res://autoload/run_state.gd"
+SaveService="*res://autoload/save_service.gd"
+EventLog="*res://autoload/event_log.gd"

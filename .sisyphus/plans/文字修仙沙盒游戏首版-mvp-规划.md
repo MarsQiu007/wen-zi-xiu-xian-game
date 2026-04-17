@@ -672,7 +672,7 @@ Wave FINAL（并行验证）
   - Files: `scripts/modes/human/*`, `scenes/ui/*`
   - Pre-commit: `godot4 --headless --path . --script res://scripts/dev/smoke_runner.gd -- --mode=human --days=10`
 
-- [ ] 9. 实现家族、婚姻/道侣、继承最小闭环
+- [x] 9. 实现家族、婚姻/道侣、继承最小闭环
 
   **What to do**：
   - 实现核心家庭、直系血脉、婚姻与道侣分离逻辑
@@ -702,9 +702,9 @@ Wave FINAL（并行验证）
   - `### 继承人资格规则（已确认）`
 
   **Acceptance Criteria**：
-  - [ ] 婚姻与道侣在数据和逻辑上可区分
-  - [ ] 子嗣与直系血脉可生成并参与继承判定
-  - [ ] 主角死亡后，若存在合法继承人，可继续游戏而非直接结束
+  - [x] 婚姻与道侣在数据和逻辑上可区分
+  - [x] 子嗣与直系血脉可生成并参与继承判定
+  - [x] 主角死亡后，若存在合法继承人，可继续游戏而非直接结束
 
   **QA Scenarios**：
   ```

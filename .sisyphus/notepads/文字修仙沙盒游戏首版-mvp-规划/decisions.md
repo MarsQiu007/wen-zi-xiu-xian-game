@@ -41,3 +41,11 @@
 - 开局差异首版只通过 `age_years / pressures / dominant_branch / strategy` 形成最小闭环，不提前引入任务 9 的婚姻继承系统，也不提前引入任务 10 的完整境界成长。
 - 求仙入口继续采用“主动接触累计 `contact_score` 后解锁 `cultivation_opportunity`”的门槛式设计，而不是固定天数或固定事件发券，以保持凡俗阶段与主动求仙之间的因果关系。
 - `scripts/dev/smoke_runner.gd` 继续作为任务 7/8 的统一 headless 入口；服务节点可按需条件释放，但 `quit(...)` 必须无条件落在任务函数尾部，保证退出码稳定可审计。
+
+## 任务 9 架构决定
+
+- 任务 9 继续沿用 task8 的轻量 human runtime 字典架构，不额外引入家族管理器或多主角控制器；继承切换只更新当前 `player / current_player_id / lineage.active_character_id`，保持单角色视角。
+- 婚姻与道侣在数据层明确拆分为 `spouse_character_id` 与 `dao_companion_character_id`，并由 human runtime 原样透传；首版不扩展到复杂关系网络。
+- 继承判定收敛为最小确定性规则：优先选择存活的 `direct_line_child_ids`，若不存在则回落到 `legal_heir_character_id`，否则终止人类模式视角。
+- 死亡与继承承接放在 `human_early_loop.gd` 内与日推进一并结算，`SimulationRunner` 只负责记录“承继视角/香火断绝”事件，避免把人类模式生命周期拆散到多个系统。
+- 任务 9 的验证继续复用统一 `scripts/dev/smoke_runner.gd`，新增 `task9` 入口和 `scripts/dev/task9_smoke.gd` 来覆盖关系区分、直系优先、法定继承兜底与无继承人终局四类最小场景。

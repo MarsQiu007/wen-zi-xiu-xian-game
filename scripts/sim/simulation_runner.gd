@@ -5,6 +5,7 @@ const DEFAULT_SEED := 42
 const CATALOG_PATH := "res://resources/world/world_data_catalog.tres"
 const SeededRandomScript = preload("res://scripts/sim/seeded_random.gd")
 const HumanModeRuntimeScript = preload("res://scripts/modes/human/human_mode_runtime.gd")
+const DeityModeRuntimeScript = preload("res://scripts/modes/deity/deity_mode_runtime.gd")
 
 const NEED_RESOURCE := &"resource_pressure"
 const NEED_STABILITY := &"stability"
@@ -30,6 +31,9 @@ var _task7_enabled: bool = false
 var _human_mode_runtime: RefCounted = HumanModeRuntimeScript.new()
 var _human_mode_options: Dictionary = {}
 var _human_runtime: Dictionary = {}
+var _deity_mode_runtime: RefCounted = DeityModeRuntimeScript.new()
+var _deity_mode_options: Dictionary = {}
+var _deity_runtime: Dictionary = {}
 
 
 func setup_services(time_service: Node, event_log: Node, run_state: Node) -> void:
@@ -54,6 +58,7 @@ func reset_simulation(seed: int = DEFAULT_SEED) -> void:
 	_runtime_characters = _build_runtime_characters()
 	_task7_enabled = _has_task7_fixture_characters()
 	_human_runtime = _build_human_runtime()
+	_deity_runtime = _build_deity_runtime()
 	_time_service().reset_clock()
 	_event_log().clear()
 	_run_state().set_phase(&"ready")
@@ -68,6 +73,7 @@ func reset_simulation(seed: int = DEFAULT_SEED) -> void:
 			"catalog_path": _catalog_path,
 			"task7_enabled": _task7_enabled,
 			"human_opening_type": str(_human_runtime.get("opening_type", "")),
+			"deity_id": str(_deity_runtime.get("deity", {}).get("id", "")),
 		},
 	})
 
@@ -86,6 +92,10 @@ func configure_human_mode(options: Dictionary) -> void:
 	_human_mode_options = options.duplicate(true)
 
 
+func configure_deity_mode(options: Dictionary) -> void:
+	_deity_mode_options = options.duplicate(true)
+
+
 func get_catalog_path() -> String:
 	return _catalog_path
 
@@ -100,6 +110,10 @@ func get_runtime_characters() -> Array[Dictionary]:
 
 func get_human_runtime() -> Dictionary:
 	return _human_runtime.duplicate(true)
+
+
+func get_deity_runtime() -> Dictionary:
+	return _deity_runtime.duplicate(true)
 
 
 func has_pending_pause() -> bool:
@@ -124,6 +138,7 @@ func advance_one_day(stop_on_pause: bool = true, auto_resolve_pause: bool = fals
 	var day_report: Dictionary = _time_service().advance_day()
 	var simulated_day: int = int(day_report.get("completed_day", _time_service().get_completed_day()))
 	_resolve_human_mode_day(simulated_day)
+	_resolve_deity_mode_day(simulated_day)
 	var event_entry: Dictionary = _resolve_daily_event(simulated_day)
 	var report := {
 		"requested_days": 1,
@@ -331,6 +346,69 @@ func _resolve_human_mode_day(simulated_day: int) -> void:
 		})
 	if not bool(cultivation.get("blocked", true)):
 		_log_human_cultivation_update(simulated_day, action, cultivation)
+
+
+func _resolve_deity_mode_day(simulated_day: int) -> void:
+	if _deity_runtime.is_empty():
+		return
+	var resolution: Dictionary = _deity_mode_runtime.advance_day(_deity_runtime, simulated_day)
+	_deity_runtime = resolution.get("runtime", _deity_runtime).duplicate(true)
+	var deity: Dictionary = _deity_runtime.get("deity", {})
+	var doctrine: Dictionary = _deity_runtime.get("doctrine", {})
+	var income: Dictionary = resolution.get("income", {})
+	var intervention: Dictionary = resolution.get("intervention", {})
+	_event_log().add_event({
+		"category": "deity_faith",
+		"title": "%s 收拢香火" % str(deity.get("display_name", "神明")),
+		"actor_ids": [str(deity.get("id", "deity_mode_actor"))],
+		"related_ids": [str(doctrine.get("id", ""))],
+		"direct_cause": "faith_income_tick",
+		"result": _build_deity_income_result(income),
+		"day": simulated_day,
+		"minute_of_day": _time_service().minute_of_day,
+		"trace": {
+			"deity_id": str(deity.get("id", "")),
+			"doctrine_id": str(doctrine.get("id", "")),
+			"faith_current": int(_deity_runtime.get("faith", {}).get("current", 0)),
+			"faith_generated_total": int(_deity_runtime.get("faith", {}).get("generated_total", 0)),
+			"favored_intervention": str(_deity_runtime.get("favored_intervention", "")),
+			"favored_target_tier": str(_deity_runtime.get("favored_target_tier", "")),
+			"total_gain": int(income.get("total_gain", 0)),
+		},
+	})
+	if str(intervention.get("id", "none")) == "none":
+		return
+	_event_log().add_event({
+		"category": "deity_intervention",
+		"title": "%s 发动%s" % [str(deity.get("display_name", "神明")), str(intervention.get("label", "干预"))],
+		"actor_ids": [str(deity.get("id", "deity_mode_actor"))],
+		"related_ids": [str(doctrine.get("id", "")), str(intervention.get("target_name", ""))],
+		"direct_cause": str(intervention.get("id", "deity_intervention")),
+		"result": str(intervention.get("result", "")),
+		"day": simulated_day,
+		"minute_of_day": _time_service().minute_of_day,
+		"trace": {
+			"deity_id": str(deity.get("id", "")),
+			"faith_cost": int(intervention.get("cost", 0)),
+			"faith_after_spend": int(intervention.get("faith_after_spend", 0)),
+			"target_tier": str(intervention.get("target_tier", "")),
+			"target_name": str(intervention.get("target_name", "")),
+			"preferred_by_aspect": bool(intervention.get("preferred_by_aspect", false)),
+		},
+	})
+
+
+func _build_deity_income_result(income: Dictionary) -> String:
+	var detail_parts: Array[String] = []
+	var details: Dictionary = income.get("details", {})
+	for tier_id in ["shallow_believer", "believer", "fervent_believer"]:
+		var info: Dictionary = details.get(tier_id, {})
+		detail_parts.append("%s %d 人，共 %d 点" % [
+			str(info.get("label", tier_id)),
+			int(info.get("count", 0)),
+			int(info.get("gain", 0)),
+		])
+	return "%s，本日合计获得 %d 点信仰。" % ["；".join(detail_parts), int(income.get("total_gain", 0))]
 
 
 func _log_human_cultivation_update(simulated_day: int, action: Dictionary, cultivation: Dictionary) -> void:
@@ -544,6 +622,14 @@ func _build_human_runtime() -> Dictionary:
 	if _catalog == null:
 		return {}
 	return _human_mode_runtime.build_initial_state(_catalog, _human_mode_options)
+
+
+func _build_deity_runtime() -> Dictionary:
+	if _run_state() == null or _run_state().mode != &"deity":
+		return {}
+	if _catalog == null:
+		return {}
+	return _deity_mode_runtime.build_initial_state(_catalog, _runtime_characters, _deity_mode_options)
 
 
 func _resolve_character_actions(simulated_day: int) -> void:

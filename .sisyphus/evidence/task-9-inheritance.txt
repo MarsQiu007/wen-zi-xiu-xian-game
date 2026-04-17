@@ -1,0 +1,8 @@
+[task-9] 死亡后合法继承人接班
+EXIT=0
+
+SMOKE_START|task=task9|scenario=minimal_closure|seed=42
+ASSERT|scenario=task9_direct_line|heir_id=task9_direct_child|current_player=task9_direct_child|reason=direct_line_descendant|used_direct_line=true|used_legal_heir=false
+ASSERT|scenario=task9_legal_heir|heir_id=task9_designated_heir|current_player=task9_designated_heir|reason=designated_legal_heir|used_direct_line=false|used_legal_heir=true
+ASSERT|scenario=task9_no_heir|terminated=true|termination_reason=no_heir_after_death|current_player_id=|termination_log=true
+SUMMARY|task=task9|scenario=minimal_closure|failed=false|message=task9 最小闭环验证通过

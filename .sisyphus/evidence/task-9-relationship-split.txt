@@ -1,0 +1,6 @@
+[task-9] 婚姻与道侣分离生效
+EXIT=0
+
+SMOKE_START|task=task9|scenario=minimal_closure|seed=42
+ASSERT|scenario=task9_relations|marriage_id=mvp_divine_visionary|dao_companion_id=mvp_village_heir|distinct=true
+SUMMARY|task=task9|scenario=minimal_closure|failed=false|message=task9 最小闭环验证通过

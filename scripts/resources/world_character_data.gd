@@ -20,3 +20,7 @@ class_name WorldCharacterData
 @export var faith_affinity: int = 0
 @export var role_tags: PackedStringArray = PackedStringArray()
 @export_multiline var life_goal_summary: String = ""
+@export var spouse_character_id: StringName = &""
+@export var dao_companion_character_id: StringName = &""
+@export var direct_line_child_ids: PackedStringArray = PackedStringArray()
+@export var legal_heir_character_id: StringName = &""

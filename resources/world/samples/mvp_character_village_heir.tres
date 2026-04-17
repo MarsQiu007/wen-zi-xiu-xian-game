@@ -23,3 +23,7 @@ temperament_tags = PackedStringArray("calm", "curious")
 faith_affinity = 1
 role_tags = PackedStringArray("candidate_heir", "potential_disciple")
 life_goal_summary = "保住家业并寻找入门修行的机会。"
+spouse_character_id = &"mvp_divine_visionary"
+dao_companion_character_id = &""
+direct_line_child_ids = PackedStringArray()
+legal_heir_character_id = &""

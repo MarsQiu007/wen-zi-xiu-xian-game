@@ -23,3 +23,7 @@ temperament_tags = PackedStringArray("observant", "steadfast")
 faith_affinity = 5
 role_tags = PackedStringArray("seer_candidate", "future_devotee")
 life_goal_summary = "通过神谕与仪式建立稳定信众。"
+spouse_character_id = &""
+dao_companion_character_id = &"mvp_village_heir"
+direct_line_child_ids = PackedStringArray()
+legal_heir_character_id = &""

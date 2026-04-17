@@ -1,0 +1,9 @@
+[task-8] 三类年龄开局可运行
+EXIT=0
+
+SMOKE_START|task=task8|scenario=age_openings|seed=42|days=5
+CASE|scenario=age_openings|opening_type=youth|age_years=14|dominant_branch=learning|survival_pressure=8|family_pressure=4|learning_pressure=3
+CASE|scenario=age_openings|opening_type=young_adult|age_years=18|dominant_branch=family|survival_pressure=5|family_pressure=3|learning_pressure=3
+CASE|scenario=age_openings|opening_type=adult|age_years=26|dominant_branch=survival|survival_pressure=13|family_pressure=11|learning_pressure=6
+ASSERT|scenario=age_openings|ages_distinct=true|branches_distinct=true|pressure_diff_visible=true
+SUMMARY|task=task8|scenario=age_openings|failed=false|message=age_openings 场景完成

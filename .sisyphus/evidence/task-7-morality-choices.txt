@@ -1,0 +1,8 @@
+[task-7] 不同道德值导致不同行为手段
+EXIT=0
+
+SMOKE_START|task=task7|scenario=morality|seed=42
+ENTRY|id=evt_0003|day=1|minute=0|category=npc_action|title=许清宁 采取行动|actors=task7_kind_collector|cause=task7_npc_intent|result=许清宁 因 尽快筹措药材，稳住家中病患的疗养。 转向 secure_resources，并决定以 协商交换 落地。|pause=false|trace=actor_id:task7_kind_collector,detail_level:detailed,focus_tier:focused,goal_id:goal_resource_stabilize,intent:secure_resources,method:协商交换,morality_style:principled,need_key:resource_pressure
+ENTRY|id=evt_0004|day=1|minute=0|category=npc_action|title=顾厉行 采取行动|actors=task7_ruthless_collector|cause=task7_npc_intent|result=顾厉行 因 尽快筹措药材，稳住家中病患的疗养。 转向 secure_resources，并决定以 强取截留 落地。|pause=false|trace=actor_id:task7_ruthless_collector,detail_level:detailed,focus_tier:focused,goal_id:goal_resource_stabilize,intent:secure_resources,method:强取截留,morality_style:ruthless,need_key:resource_pressure
+ASSERT|scenario=morality|same_need=true|same_goal=true|same_intent=true|different_method=true|different_morality=true
+SUMMARY|task=task7|scenario=morality|failed=false|message=morality 场景完成

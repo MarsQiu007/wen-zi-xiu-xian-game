@@ -1,0 +1,8 @@
+[task-8] 求仙机会需要主动争取
+EXIT=0
+
+SMOKE_START|task=task8|scenario=cultivation_gate|seed=42|days=3
+CASE|scenario=cultivation_gate|path=passive|contact_score=0|active_contact=false|opportunity_unlocked=false|dominant_branch=learning
+CASE|scenario=cultivation_gate|path=active|contact_score=6|active_contact=true|opportunity_unlocked=true|dominant_branch=cultivation
+ASSERT|scenario=cultivation_gate|passive_blocked=true|active_unlocked=true|contact_gap=true
+SUMMARY|task=task8|scenario=cultivation_gate|failed=false|message=cultivation_gate 场景完成

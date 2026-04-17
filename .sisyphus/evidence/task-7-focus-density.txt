@@ -1,0 +1,8 @@
+[task-7] 焦点等级影响模拟细度
+EXIT=0
+
+SMOKE_START|task=task7|scenario=focus|seed=42|days=6
+ENTRY|id=evt_0014|day=3|minute=0|category=npc_action|title=韩默然 采取行动|actors=task7_background_scribe|cause=task7_npc_intent|result=韩默然 围绕 整理秩序 进行了批量推进，手段为 公开调解。|pause=false|trace=actor_id:task7_background_scribe,detail_level:summary,focus_tier:background,goal_id:goal_order_records,intent:stabilize_records,method:公开调解,morality_style:principled,need_key:stability
+ENTRY|id=evt_0027|day=6|minute=0|category=npc_action|title=韩默然 采取行动|actors=task7_background_scribe|cause=task7_npc_intent|result=韩默然 围绕 整理秩序 进行了批量推进，手段为 公开调解。|pause=false|trace=actor_id:task7_background_scribe,detail_level:summary,focus_tier:background,goal_id:goal_order_records,intent:stabilize_records,method:公开调解,morality_style:principled,need_key:stability
+ASSERT|scenario=focus|focused_count=6|background_count=2|focused_detailed=true|background_summarized=true
+SUMMARY|task=task7|scenario=focus|failed=false|message=focus 场景完成

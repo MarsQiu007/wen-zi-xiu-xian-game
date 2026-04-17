@@ -547,7 +547,7 @@ Wave FINAL（并行验证）
   - Files: `scripts/dev/*`, `scenes/dev/*`
   - Pre-commit: `godot4 --headless --path . --script res://scripts/dev/smoke_runner.gd -- --mode=human --days=3`
 
-- [ ] 7. 实现 NPC 需求/目标/道德/焦点分层核心
+- [x] 7. 实现 NPC 需求/目标/道德/焦点分层核心
 
   **What to do**：
   - 实现 NPC 的基础需求系统、人生目标系统、道德值系统与焦点分层
@@ -579,9 +579,9 @@ Wave FINAL（并行验证）
   - `## 道德值系统（重设计初稿）`
 
   **Acceptance Criteria**：
-  - [ ] NPC 能根据当前需求与目标生成基础行动方向
-  - [ ] 道德值能改变“采取什么手段”而非只是标签
-  - [ ] 焦点分层能明显影响更新精度与日志密度
+  - [x] NPC 能根据当前需求与目标生成基础行动方向
+  - [x] 道德值能改变“采取什么手段”而非只是标签
+  - [x] 焦点分层能明显影响更新精度与日志密度
 
   **QA Scenarios**：
   ```
@@ -610,7 +610,7 @@ Wave FINAL（并行验证）
   - Files: `scripts/sim/*`, `resources/*`
   - Pre-commit: `godot4 --headless --path . --script res://scripts/dev/npc_behavior_smoke.gd`
 
-- [ ] 8. 实现人类模式开局与早期成长循环
+- [x] 8. 实现人类模式开局与早期成长循环
 
   **What to do**：
   - 实现少年 / 青年 / 成年三类开局
@@ -640,9 +640,9 @@ Wave FINAL（并行验证）
   - `### 开局年龄规则（已确认）`
 
   **Acceptance Criteria**：
-  - [ ] 人类模式至少支持三类年龄开局
-  - [ ] 前期可在生存/家族/求仙之间形成真实分歧
-  - [ ] 玩家必须主动接触修仙圈层才能进入灵根测试 / 入门机会
+  - [x] 人类模式至少支持三类年龄开局
+  - [x] 前期可在生存/家族/求仙之间形成真实分歧
+  - [x] 玩家必须主动接触修仙圈层才能进入灵根测试 / 入门机会
 
   **QA Scenarios**：
   ```

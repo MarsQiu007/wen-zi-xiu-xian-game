@@ -984,16 +984,9 @@ func _refresh_main_menu_continue_button() -> void:
 		return
 
 	var timestamp := int(save_info.get("timestamp", 0))
-	var mode_text := "unknown"
-	if SaveService.has_method("load_game"):
-		var loaded_data: Dictionary = SaveService.load_game()
-		if not loaded_data.is_empty():
-			var snapshot: Dictionary = _extract_snapshot_from_save_payload(loaded_data)
-			if not snapshot.is_empty():
-				mode_text = str(snapshot.get("mode", "unknown"))
 	var time_text := Time.get_datetime_string_from_unix_time(timestamp, true)
 	if _main_menu_save_info_label != null:
-		_main_menu_save_info_label.text = "存档时间：%s | 模式：%s" % [time_text, mode_text]
+		_main_menu_save_info_label.text = "存档时间：%s | 模式：凡人" % time_text
 
 
 func _extract_snapshot_from_save_payload(loaded_data: Dictionary) -> Dictionary:
@@ -1321,6 +1314,13 @@ func _on_embedded_roster_selected(index: int) -> void:
 	_embedded_detail_label.text = text
 
 func _refresh_roster() -> void:
+	if CharacterService == null or RunState == null:
+		_current_roster.clear()
+		_roster_list.clear()
+		_detail_label.text = "角色服务不可用。"
+		_timeline_label.text = ""
+		return
+
 	_current_roster = CharacterService.get_roster(RunState.mode)
 	_roster_list.clear()
 	for c in _current_roster:
@@ -1489,7 +1489,11 @@ func _on_region_character_activated(index: int) -> void:
 		_map_panel.hide()
 		_character_panel.show()
 		_refresh_roster()
+		if index < 0 or index >= _current_roster.size():
+			return
 		for i in range(_roster_list.item_count):
+			if i < 0 or i >= _current_roster.size():
+				continue
 			if _current_roster[i].get("id", "") == char_id:
 				_roster_list.select(i)
 				_on_roster_item_selected(i)

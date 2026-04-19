@@ -11,6 +11,8 @@ var _main_menu_panel: PanelContainer
 var _mode_select_screen: PanelContainer
 var _char_creation_screen: PanelContainer
 var _game_ui_container: MarginContainer
+var _world_init_screen: PanelContainer
+var _time_control_panel: HBoxContainer
 
 var _status_panel: PanelContainer
 var _status_label: Label
@@ -53,9 +55,20 @@ var RunState: Node
 var CharacterService: Node
 var LocationService: Node
 
+var _loading_label: Label
+
 func _ready() -> void:
 	_bind_singletons()
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	
+	_loading_label = Label.new()
+	_loading_label.text = " 正在生成世界，请稍候... "
+	_loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_loading_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_loading_label.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_loading_label.hide()
+	add_child(_loading_label)
+
 	_build_minimal_ui()
 	_build_main_menu()
 	
@@ -68,6 +81,11 @@ func _ready() -> void:
 	add_child(_char_creation_screen)
 	_char_creation_screen.character_created.connect(func(p): character_created.emit(p))
 	_char_creation_screen.hide()
+	
+	_world_init_screen = preload("res://scenes/ui/world_init_screen.tscn").instantiate()
+	add_child(_world_init_screen)
+	_world_init_screen.world_initialized.connect(func(): world_initialized.emit())
+	_world_init_screen.hide()
 	
 	_build_character_ui()
 	_build_map_ui()
@@ -195,6 +213,15 @@ func _build_minimal_ui() -> void:
 	_guide_label.name = "GuideLabel"
 	_guide_label.modulate = Color(0.7, 0.7, 1.0)
 	status_hbox.add_child(_guide_label)
+
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	status_hbox.add_child(spacer)
+	
+	_time_control_panel = preload("res://scripts/ui/time_control_panel.gd").new()
+	_time_control_panel.name = "TimeControlPanel"
+	status_hbox.add_child(_time_control_panel)
+	_time_control_panel.hide()
 
 	# --- Main Content Area ---
 	var content_hbox := HBoxContainer.new()
@@ -427,21 +454,46 @@ func _on_mode_changed(_mode: StringName) -> void:
 func _on_phase_changed(phase: StringName) -> void:
 	_refresh_text()
 	
-	if phase == &"mode_select":
+	if phase == &"menu":
+		if _mode_select_screen: _mode_select_screen.hide()
+		if _char_creation_screen: _char_creation_screen.hide()
+		if _world_init_screen: _world_init_screen.hide()
+		if _time_control_panel: _time_control_panel.hide()
+		if _main_menu_panel: _main_menu_panel.show()
+		if _game_ui_container: _game_ui_container.hide()
+		if _loading_label: _loading_label.hide()
+	elif phase == &"mode_select":
 		if _mode_select_screen: _mode_select_screen.show()
 		if _char_creation_screen: _char_creation_screen.hide()
+		if _world_init_screen: _world_init_screen.hide()
+		if _time_control_panel: _time_control_panel.hide()
 		if _main_menu_panel: _main_menu_panel.hide()
 		if _game_ui_container: _game_ui_container.hide()
+		if _loading_label: _loading_label.hide()
 	elif phase == &"char_creation":
 		if _mode_select_screen: _mode_select_screen.hide()
 		if _char_creation_screen: _char_creation_screen.show()
+		if _world_init_screen: _world_init_screen.hide()
+		if _time_control_panel: _time_control_panel.hide()
 		if _main_menu_panel: _main_menu_panel.hide()
 		if _game_ui_container: _game_ui_container.hide()
-	elif phase == &"world_init" or phase == &"main_play":
+		if _loading_label: _loading_label.hide()
+	elif phase == &"world_init":
 		if _mode_select_screen: _mode_select_screen.hide()
 		if _char_creation_screen: _char_creation_screen.hide()
 		if _main_menu_panel: _main_menu_panel.hide()
+		if _game_ui_container: _game_ui_container.hide()
+		if _loading_label: _loading_label.hide()
+		if _time_control_panel: _time_control_panel.hide()
+		if _world_init_screen: _world_init_screen.show()
+	elif phase == &"main_play" or phase == &"running" or phase == &"ready":
+		if _mode_select_screen: _mode_select_screen.hide()
+		if _char_creation_screen: _char_creation_screen.hide()
+		if _world_init_screen: _world_init_screen.hide()
+		if _main_menu_panel: _main_menu_panel.hide()
 		if _game_ui_container: _game_ui_container.show()
+		if _time_control_panel: _time_control_panel.show()
+		if _loading_label: _loading_label.hide()
 
 
 

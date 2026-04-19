@@ -8,6 +8,8 @@ signal character_created(params: Dictionary)
 signal world_initialized()
 
 var _main_menu_panel: PanelContainer
+var _mode_select_screen: PanelContainer
+var _char_creation_screen: PanelContainer
 var _game_ui_container: MarginContainer
 
 var _status_panel: PanelContainer
@@ -56,6 +58,17 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_build_minimal_ui()
 	_build_main_menu()
+	
+	_mode_select_screen = preload("res://scenes/ui/mode_select_screen.tscn").instantiate()
+	add_child(_mode_select_screen)
+	_mode_select_screen.mode_selected.connect(func(m): mode_selected.emit(m))
+	_mode_select_screen.hide()
+	
+	_char_creation_screen = preload("res://scenes/ui/char_creation_screen.tscn").instantiate()
+	add_child(_char_creation_screen)
+	_char_creation_screen.character_created.connect(func(p): character_created.emit(p))
+	_char_creation_screen.hide()
+	
 	_build_character_ui()
 	_build_map_ui()
 	
@@ -411,8 +424,25 @@ func _on_mode_changed(_mode: StringName) -> void:
 	_refresh_text()
 
 
-func _on_phase_changed(_phase: StringName) -> void:
+func _on_phase_changed(phase: StringName) -> void:
 	_refresh_text()
+	
+	if phase == &"mode_select":
+		if _mode_select_screen: _mode_select_screen.show()
+		if _char_creation_screen: _char_creation_screen.hide()
+		if _main_menu_panel: _main_menu_panel.hide()
+		if _game_ui_container: _game_ui_container.hide()
+	elif phase == &"char_creation":
+		if _mode_select_screen: _mode_select_screen.hide()
+		if _char_creation_screen: _char_creation_screen.show()
+		if _main_menu_panel: _main_menu_panel.hide()
+		if _game_ui_container: _game_ui_container.hide()
+	elif phase == &"world_init" or phase == &"main_play":
+		if _mode_select_screen: _mode_select_screen.hide()
+		if _char_creation_screen: _char_creation_screen.hide()
+		if _main_menu_panel: _main_menu_panel.hide()
+		if _game_ui_container: _game_ui_container.show()
+
 
 
 func _on_test_action_pressed() -> void:

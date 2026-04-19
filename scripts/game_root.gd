@@ -24,6 +24,8 @@ func _ready() -> void:
 			ui_root.bind_runner(simulation_runner)
 		ui_root.menu_new_game_requested.connect(_on_new_game_requested)
 		ui_root.menu_continue_requested.connect(_on_continue_requested)
+		ui_root.mode_selected.connect(_on_mode_selected)
+		ui_root.character_created.connect(_on_character_created)
 		ui_root.show_main_menu()
 
 

@@ -60,8 +60,11 @@ var _active_tab: String = "log"  # Default tab
 var _right_content_panel: PanelContainer
 var _log_content_panel: PanelContainer
 var _map_content_panel: PanelContainer
+var _map_hsplit: HSplitContainer
 var _world_chars_panel: PanelContainer
 var _favor_panel: PanelContainer
+var _favor_list_vbox: VBoxContainer
+var _favor_sort_mode: String = "favor"
 var _inventory_panel: PanelContainer
 
 # Map UI components
@@ -72,6 +75,11 @@ var _region_characters_list: ItemList
 var _current_regions: Array[Dictionary] = []
 var _map_region_items: Dictionary = {} # region_id -> TreeItem
 var _map_focus_region_id: String = ""
+
+# Embedded world chars panel
+var _embedded_roster_list: ItemList
+var _embedded_detail_label: RichTextLabel
+var _embedded_sort_mode: String = "realm"
 
 var EventLog: Node
 var TimeService: Node
@@ -389,7 +397,19 @@ func _build_minimal_ui() -> void:
 	log_toolbar.add_child(_log_actor_filter_btn)
 	
 	_log_category_filter_btn = OptionButton.new()
-	_log_category_filter_btn.add_item("All Categories")
+	_log_category_filter_btn.add_item("所有类别")
+	_log_category_filter_btn.set_item_metadata(0, "all")
+	_log_category_filter_btn.add_item("社交")
+	_log_category_filter_btn.set_item_metadata(1, "social")
+	_log_category_filter_btn.add_item("修炼")
+	_log_category_filter_btn.set_item_metadata(2, "cultivation")
+	_log_category_filter_btn.add_item("探索")
+	_log_category_filter_btn.set_item_metadata(3, "explore")
+	_log_category_filter_btn.add_item("冲突")
+	_log_category_filter_btn.set_item_metadata(4, "conflict")
+	_log_category_filter_btn.add_item("系统")
+	_log_category_filter_btn.set_item_metadata(5, "system")
+	_known_categories = ["social", "cultivation", "explore", "conflict", "system"]
 	_log_category_filter_btn.item_selected.connect(func(_idx): _refresh_log())
 	log_toolbar.add_child(_log_category_filter_btn)
 	
@@ -397,36 +417,162 @@ func _build_minimal_ui() -> void:
 	_log_label.name = "LogTextLabel"
 	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_log_label.scroll_following = true
+	_log_label.bbcode_enabled = true
 	log_vbox.add_child(_log_label)
 
-	# Map Content Panel Placeholder
+	# Map Content Panel
 	_map_content_panel = PanelContainer.new()
 	_map_content_panel.name = "MapContentPanel"
 	_map_content_panel.hide()
-	var map_lbl := Label.new()
-	map_lbl.text = "地图功能正在开发中 (T14)"
-	map_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_map_content_panel.add_child(map_lbl)
+	
+	var map_vbox := VBoxContainer.new()
+	map_vbox.name = "MapVBox"
+	_map_content_panel.add_child(map_vbox)
+	
+	var map_toolbar := HBoxContainer.new()
+	map_toolbar.add_theme_constant_override("separation", 8)
+	map_vbox.add_child(map_toolbar)
+	
+	var map_title := Label.new()
+	map_title.text = "- 区域地图 -"
+	map_toolbar.add_child(map_title)
+	
+	var spacer_map := Control.new()
+	spacer_map.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	map_toolbar.add_child(spacer_map)
+	
+	var fullscreen_map_btn := Button.new()
+	fullscreen_map_btn.text = "全屏查看"
+	fullscreen_map_btn.pressed.connect(_on_view_map_pressed)
+	map_toolbar.add_child(fullscreen_map_btn)
+	
 	_right_content_panel.add_child(_map_content_panel)
 
-	# World Chars Content Panel Placeholder
+	# World Chars Content Panel
 	_world_chars_panel = PanelContainer.new()
 	_world_chars_panel.name = "WorldCharsContentPanel"
 	_world_chars_panel.hide()
-	var chars_lbl := Label.new()
-	chars_lbl.text = "世界角色功能正在开发中 (T14)"
-	chars_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_world_chars_panel.add_child(chars_lbl)
+	
+	var chars_vbox := VBoxContainer.new()
+	_world_chars_panel.add_child(chars_vbox)
+	
+	var chars_toolbar := HBoxContainer.new()
+	chars_toolbar.add_theme_constant_override("separation", 8)
+	chars_vbox.add_child(chars_toolbar)
+	
+	var chars_title := Label.new()
+	chars_title.text = "- 世界角色 -"
+	chars_toolbar.add_child(chars_title)
+	
+	var chars_spacer := Control.new()
+	chars_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	chars_toolbar.add_child(chars_spacer)
+	
+	var chars_sort_realm_btn := Button.new()
+	chars_sort_realm_btn.text = "按修为"
+	chars_sort_realm_btn.pressed.connect(func():
+		_embedded_sort_mode = "realm"
+		_refresh_world_characters()
+	)
+	chars_toolbar.add_child(chars_sort_realm_btn)
+	
+	var chars_sort_favor_btn := Button.new()
+	chars_sort_favor_btn.text = "按好感"
+	chars_sort_favor_btn.pressed.connect(func():
+		_embedded_sort_mode = "favor"
+		_refresh_world_characters()
+	)
+	chars_toolbar.add_child(chars_sort_favor_btn)
+	
+	var chars_sort_region_btn := Button.new()
+	chars_sort_region_btn.text = "按区域"
+	chars_sort_region_btn.pressed.connect(func():
+		_embedded_sort_mode = "region"
+		_refresh_world_characters()
+	)
+	chars_toolbar.add_child(chars_sort_region_btn)
+	
+	var chars_hsplit := HSplitContainer.new()
+	chars_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	chars_vbox.add_child(chars_hsplit)
+	
+	_embedded_roster_list = ItemList.new()
+	_embedded_roster_list.custom_minimum_size = Vector2(150, 0)
+	_embedded_roster_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_embedded_roster_list.item_selected.connect(_on_embedded_roster_selected)
+	chars_hsplit.add_child(_embedded_roster_list)
+	
+	var detail_vbox := VBoxContainer.new()
+	detail_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	detail_vbox.size_flags_stretch_ratio = 2.0
+	chars_hsplit.add_child(detail_vbox)
+	
+	_embedded_detail_label = RichTextLabel.new()
+	_embedded_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_embedded_detail_label.bbcode_enabled = true
+	detail_vbox.add_child(_embedded_detail_label)
+	
+	var view_full_btn := Button.new()
+	view_full_btn.text = "查看完整信息"
+	view_full_btn.pressed.connect(func():
+		var idxs = _embedded_roster_list.get_selected_items()
+		if idxs.size() > 0:
+			var cid = _embedded_roster_list.get_item_metadata(idxs[0])
+			_open_full_character_panel(cid)
+		else:
+			_character_panel.show()
+			_refresh_roster()
+	)
+	detail_vbox.add_child(view_full_btn)
+	
 	_right_content_panel.add_child(_world_chars_panel)
 
-	# Favor Content Panel Placeholder
+	# Favor Content Panel
 	_favor_panel = PanelContainer.new()
 	_favor_panel.name = "FavorContentPanel"
 	_favor_panel.hide()
-	var favor_lbl := Label.new()
-	favor_lbl.text = "好感度功能正在开发中 (T16)"
-	favor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_favor_panel.add_child(favor_lbl)
+	
+	var favor_margin := MarginContainer.new()
+	favor_margin.add_theme_constant_override("margin_left", 20)
+	favor_margin.add_theme_constant_override("margin_right", 20)
+	favor_margin.add_theme_constant_override("margin_top", 20)
+	favor_margin.add_theme_constant_override("margin_bottom", 20)
+	_favor_panel.add_child(favor_margin)
+
+	var favor_vbox := VBoxContainer.new()
+	favor_margin.add_child(favor_vbox)
+
+	var favor_title := Label.new()
+	favor_title.text = "- 人际好感 -"
+	favor_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	favor_vbox.add_child(favor_title)
+	
+	var sort_hbox := HBoxContainer.new()
+	sort_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	sort_hbox.add_theme_constant_override("separation", 20)
+	favor_vbox.add_child(sort_hbox)
+	
+	var sort_favor_btn := Button.new()
+	sort_favor_btn.text = "按好感排序"
+	sort_favor_btn.pressed.connect(_on_sort_favor_pressed)
+	sort_hbox.add_child(sort_favor_btn)
+	
+	var sort_type_btn := Button.new()
+	sort_type_btn.text = "按类型排序"
+	sort_type_btn.pressed.connect(_on_sort_type_pressed)
+	sort_hbox.add_child(sort_type_btn)
+	
+	var favor_sep := HSeparator.new()
+	favor_vbox.add_child(favor_sep)
+
+	var favor_scroll := ScrollContainer.new()
+	favor_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	favor_vbox.add_child(favor_scroll)
+	
+	_favor_list_vbox = VBoxContainer.new()
+	_favor_list_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	favor_scroll.add_child(_favor_list_vbox)
+
 	_right_content_panel.add_child(_favor_panel)
 
 	# Inventory Content Panel Placeholder
@@ -448,6 +594,120 @@ func _on_tab_button_pressed(tab_name: String) -> void:
 	_active_tab = tab_name
 	_update_tab_highlight()
 	_update_right_content_visibility()
+	
+	if _active_tab == "map":
+		_refresh_map()
+	elif _active_tab == "world_chars":
+		_refresh_world_characters()
+	elif _active_tab == "favor":
+		_refresh_favor_panel()
+
+func _on_sort_favor_pressed() -> void:
+	_favor_sort_mode = "favor"
+	_refresh_favor_panel()
+
+func _on_sort_type_pressed() -> void:
+	_favor_sort_mode = "type"
+	_refresh_favor_panel()
+
+func _refresh_favor_panel() -> void:
+	if _favor_list_vbox == null:
+		return
+		
+	for child in _favor_list_vbox.get_children():
+		child.queue_free()
+		
+	if _sim_runner == null or not _sim_runner.has_method("get_snapshot"):
+		var lbl := Label.new()
+		lbl.text = "暂无关系数据。"
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_favor_list_vbox.add_child(lbl)
+		return
+		
+	var snapshot: Dictionary = _sim_runner.get_snapshot()
+	var net: Dictionary = snapshot.get("relationship_network", {})
+	var edges: Array = net.get("edges", [])
+	
+	if edges.is_empty():
+		var lbl := Label.new()
+		lbl.text = "尚未结识任何角色。"
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_favor_list_vbox.add_child(lbl)
+		return
+		
+	var characters: Array = _sim_runner.get_runtime_characters()
+	if characters.is_empty():
+		return
+		
+	var player_id := str(characters[0].get("id", ""))
+	if player_id.is_empty():
+		return
+		
+	var char_names: Dictionary = {}
+	var roster: Array[Dictionary] = CharacterService.get_roster(RunState.mode)
+	for c in roster:
+		char_names[str(c.get("id", ""))] = str(c.get("display_name", "Unknown"))
+		
+	var rels: Array[Dictionary] = []
+	for edge in edges:
+		var edge_dict: Dictionary = edge as Dictionary
+		var src := str(edge_dict.get("source_id", ""))
+		var tgt := str(edge_dict.get("target_id", ""))
+		
+		if src == player_id:
+			var target_name: String = char_names.get(tgt, tgt)
+			var type_str := str(edge_dict.get("relation_type", "unknown"))
+			var favor := int(edge_dict.get("favor", 0))
+			rels.append({"name": target_name, "type": type_str, "favor": favor})
+		elif tgt == player_id:
+			var source_name: String = char_names.get(src, src)
+			var type_str := str(edge_dict.get("relation_type", "unknown"))
+			var favor := int(edge_dict.get("favor", 0))
+			rels.append({"name": source_name, "type": type_str, "favor": favor})
+			
+	if _favor_sort_mode == "favor":
+		rels.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return int(a["favor"]) > int(b["favor"]))
+	else:
+		rels.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: 
+			if str(a["type"]) == str(b["type"]):
+				return int(a["favor"]) > int(b["favor"])
+			return str(a["type"]) < str(b["type"])
+		)
+		
+	if rels.is_empty():
+		var lbl := Label.new()
+		lbl.text = "暂无人际关系。"
+		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_favor_list_vbox.add_child(lbl)
+		return
+		
+	for rel in rels:
+		var rel_dict: Dictionary = rel as Dictionary
+		var hbox := HBoxContainer.new()
+		hbox.add_theme_constant_override("separation", 20)
+		_favor_list_vbox.add_child(hbox)
+		
+		var name_lbl := Label.new()
+		name_lbl.text = str(rel_dict["name"])
+		name_lbl.custom_minimum_size = Vector2(120, 0)
+		hbox.add_child(name_lbl)
+		
+		var type_lbl := Label.new()
+		type_lbl.text = str(rel_dict["type"])
+		type_lbl.custom_minimum_size = Vector2(100, 0)
+		type_lbl.modulate = Color(0.7, 0.7, 1.0)
+		hbox.add_child(type_lbl)
+		
+		var favor_lbl := Label.new()
+		var fav_val: int = rel_dict["favor"]
+		favor_lbl.text = "%+d" % fav_val if fav_val > 0 else str(fav_val)
+		if fav_val > 0:
+			favor_lbl.modulate = Color(0.2, 1.0, 0.2)
+		elif fav_val < 0:
+			favor_lbl.modulate = Color(1.0, 0.2, 0.2)
+		else:
+			favor_lbl.modulate = Color(0.7, 0.7, 0.7)
+		hbox.add_child(favor_lbl)
 
 func _update_tab_highlight() -> void:
 	for tab_name in _tab_buttons:
@@ -487,14 +747,39 @@ func _refresh_text() -> void:
 		_guide_label.text = ""
 
 	# Update NPC brief info
+	var has_char_data := false
 	if _sim_runner != null and _sim_runner.has_method("get_runtime_characters"):
 		var characters: Array = _sim_runner.get_runtime_characters()
 		if characters.size() > 0:
-			var player_char: Dictionary = characters[0]  # First character is the player
-			if _npc_name_label: _npc_name_label.text = "姓名: %s" % str(player_char.get("display_name", "未知"))
-			if _npc_realm_label: _npc_realm_label.text = "境界: %s" % str(player_char.get("realm", "凡人"))
-			if _npc_age_label: _npc_age_label.text = "年龄: %s" % str(player_char.get("age", "未知"))
-			if _npc_location_label: _npc_location_label.text = "位置: %s" % str(player_char.get("region_id", "未知"))
+			var player_id: StringName = StringName(characters[0].get("id", ""))
+			if player_id != StringName(""):
+				var view: Dictionary = CharacterService.get_character_view(player_id, 20, RunState.mode)
+				if not view.is_empty():
+					has_char_data = true
+					var detail: Dictionary = view.get("detail", {})
+					var attrs: Dictionary = detail.get("attributes", {})
+					var aff: Dictionary = detail.get("affiliation", {})
+					var rt: Dictionary = detail.get("runtime", {})
+					
+					var p_name: String = str(detail.get("display_name", "未知"))
+					var p_realm: String = str(attrs.get("realm", "凡人"))
+					var p_age: String = str(detail.get("age", attrs.get("age", "未知")))
+					
+					var p_loc: String = str(aff.get("region_id", "未知"))
+					var f_state: Dictionary = rt.get("focus_state", {})
+					if not f_state.is_empty() and str(f_state.get("location_id", "")) != "":
+						p_loc = str(f_state.get("location_id", ""))
+					
+					if _npc_name_label: _npc_name_label.text = "姓名: %s" % p_name
+					if _npc_realm_label: _npc_realm_label.text = "境界: %s" % p_realm
+					if _npc_age_label: _npc_age_label.text = "年龄: %s" % p_age
+					if _npc_location_label: _npc_location_label.text = "位置: %s" % p_loc
+					
+	if not has_char_data:
+		if _npc_name_label: _npc_name_label.text = "姓名: 未知"
+		if _npc_realm_label: _npc_realm_label.text = "境界: 凡人"
+		if _npc_age_label: _npc_age_label.text = "年龄: 未知"
+		if _npc_location_label: _npc_location_label.text = "位置: 未知"
 
 func _refresh_log() -> void:
 	if _log_label == null:
@@ -508,15 +793,20 @@ func _refresh_log() -> void:
 		
 	var category_filter := ""
 	if _log_category_filter_btn.get_selected_id() > 0:
-		category_filter = _log_category_filter_btn.get_item_text(_log_category_filter_btn.get_selected_id())
+		var meta = _log_category_filter_btn.get_item_metadata(_log_category_filter_btn.get_selected_id())
+		if meta != null:
+			category_filter = str(meta)
+		else:
+			category_filter = _log_category_filter_btn.get_item_text(_log_category_filter_btn.get_selected_id())
 
 	var filtered_entries: Array[Dictionary] = []
 	
 	for entry in EventLog.entries:
 		var cat := str(entry.get("category", "world"))
-		if not cat in _known_categories:
+		if not cat in _known_categories and cat != "world":
 			_known_categories.append(cat)
 			_log_category_filter_btn.add_item(cat)
+			_log_category_filter_btn.set_item_metadata(_log_category_filter_btn.get_item_count() - 1, cat)
 			
 		var actors: PackedStringArray = entry.get("actor_ids", PackedStringArray())
 		for a in actors:
@@ -554,7 +844,11 @@ func _refresh_log() -> void:
 			var trace: Dictionary = entry.get("trace", {})
 			var location := str(trace.get("location", ""))
 			var actors: PackedStringArray = entry.get("actor_ids", PackedStringArray())
-			var actor_desc := ",".join(actors) if actors.size() > 0 else "系统"
+			
+			var colored_actors := []
+			for a in actors:
+				colored_actors.append("[color=cyan]" + str(a) + "[/color]")
+			var actor_desc := ",".join(colored_actors) if colored_actors.size() > 0 else "系统"
 			
 			while j < filtered_entries.size():
 				var next_entry: Dictionary = filtered_entries[j]
@@ -563,7 +857,10 @@ func _refresh_log() -> void:
 				var next_location := str(next_trace.get("location", ""))
 				var next_actors: PackedStringArray = next_entry.get("actor_ids", PackedStringArray())
 				var next_result := str(next_entry.get("result", next_title))
-				var next_actor_desc := ",".join(next_actors) if next_actors.size() > 0 else "系统"
+				var next_colored_actors := []
+				for a in next_actors:
+					next_colored_actors.append("[color=cyan]" + str(a) + "[/color]")
+				var next_actor_desc := ",".join(next_colored_actors) if next_colored_actors.size() > 0 else "系统"
 				
 				# Same title, actors, location, and result can be aggregated
 				if next_title == title and next_location == location and next_result == result_str and next_actor_desc == actor_desc:
@@ -573,30 +870,43 @@ func _refresh_log() -> void:
 				break
 				
 			var loc_desc := (" @ " + location) if location != "" else ""
-			var timestamp := str(entry.get("timestamp", ""))
+			var day := int(entry.get("day", 1))
+			var minute_time := int(entry.get("minute_of_day", 0))
+			var timestamp := "第%d天 %02d:%02d" % [day, int(minute_time / 60.0), minute_time % 60]
 			
 			if count > 1:
-				text += "[%s] %s%s: %s (x%d)\n" % [timestamp, actor_desc, loc_desc, result_str, count]
+				text += "[[color=gray]%s[/color]] %s%s: %s (x%d)\n" % [timestamp, actor_desc, loc_desc, result_str, count]
 			else:
-				text += "[%s] %s%s: %s\n" % [timestamp, actor_desc, loc_desc, result_str]
+				text += "[[color=gray]%s[/color]] %s%s: %s\n" % [timestamp, actor_desc, loc_desc, result_str]
 				
 			i = j
 			
 	elif view_mode == 1:
 		# Standard view: title and result
 		for entry in filtered_entries:
-			var timestamp := str(entry.get("timestamp", ""))
+			var day := int(entry.get("day", 1))
+			var minute_time := int(entry.get("minute_of_day", 0))
+			var timestamp := "第%d天 %02d:%02d" % [day, int(minute_time / 60.0), minute_time % 60]
 			var title := str(entry.get("title", ""))
 			var result_str := str(entry.get("result", title))
+			
+			var actors: PackedStringArray = entry.get("actor_ids", PackedStringArray())
+			var colored_actors := []
+			for a in actors:
+				colored_actors.append("[color=cyan]" + str(a) + "[/color]")
+			var actor_desc := ",".join(colored_actors) if colored_actors.size() > 0 else "系统"
+			
 			if result_str != title and result_str != "":
-				text += "[%s] %s => %s\n" % [timestamp, title, result_str]
+				text += "[[color=gray]%s[/color]] %s => %s\n" % [timestamp, title, result_str]
 			else:
-				text += "[%s] %s\n" % [timestamp, title]
+				text += "[[color=gray]%s[/color]] %s: %s\n" % [timestamp, actor_desc, title]
 				
 	else:
 		# Detail view: dump all trace variables
 		for entry in filtered_entries:
-			var timestamp := str(entry.get("timestamp", ""))
+			var day := int(entry.get("day", 1))
+			var minute_time := int(entry.get("minute_of_day", 0))
+			var timestamp := "第%d天 %02d:%02d" % [day, int(minute_time / 60.0), minute_time % 60]
 			var title := str(entry.get("title", ""))
 			var cat := str(entry.get("category", "world"))
 			var cause := str(entry.get("direct_cause", ""))
@@ -604,7 +914,7 @@ func _refresh_log() -> void:
 			var actors: PackedStringArray = entry.get("actor_ids", PackedStringArray())
 			var trace: Dictionary = entry.get("trace", {})
 			
-			text += "[%s] [%s] %s\n" % [timestamp, cat, title]
+			text += "[[color=gray]%s[/color]] [%s] %s\n" % [timestamp, cat, title]
 			text += "    Actors: %s | Cause: %s | Result: %s\n" % [",".join(actors), cause, result_str]
 			if not trace.is_empty():
 				text += "    Trace:\n"
@@ -922,8 +1232,93 @@ func _build_character_ui() -> void:
 
 
 func _on_view_characters_pressed() -> void:
+	_open_full_character_panel("")
+
+func _open_full_character_panel(target_id: String) -> void:
 	_character_panel.show()
 	_refresh_roster()
+	if not target_id.is_empty():
+		for i in range(_roster_list.item_count):
+			if _current_roster[i].get("id", "") == target_id:
+				_roster_list.select(i)
+				_on_roster_item_selected(i)
+				break
+
+func _refresh_world_characters() -> void:
+	if _embedded_roster_list == null:
+		return
+		
+	var chars = CharacterService.get_roster(RunState.mode)
+	
+	if _embedded_sort_mode == "realm":
+		chars.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a.get("realm", 0)) > int(b.get("realm", 0))
+		)
+	elif _embedded_sort_mode == "region":
+		chars.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return str(a.get("region_id", "")) < str(b.get("region_id", ""))
+		)
+	elif _embedded_sort_mode == "favor":
+		# Assuming favor sorting requires simulation snapshot
+		var edges := []
+		if _sim_runner and _sim_runner.has_method("get_snapshot"):
+			var snap: Dictionary = _sim_runner.get_snapshot()
+			edges = snap.get("relationship_network", {}).get("edges", [])
+		var player_id := ""
+		if _sim_runner and _sim_runner.has_method("get_runtime_characters"):
+			var rc = _sim_runner.get_runtime_characters()
+			if not rc.is_empty(): player_id = str(rc[0].get("id", ""))
+		
+		var favors := {}
+		for e in edges:
+			if str(e.get("source_id", "")) == player_id:
+				favors[str(e.get("target_id", ""))] = int(e.get("favor", 0))
+			elif str(e.get("target_id", "")) == player_id:
+				favors[str(e.get("source_id", ""))] = int(e.get("favor", 0))
+				
+		chars.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			var fa := int(favors.get(str(a.get("id", "")), 0))
+			var fb := int(favors.get(str(b.get("id", "")), 0))
+			return fa > fb
+		)
+	
+	_embedded_roster_list.clear()
+	for c in chars:
+		var txt := str(c.get("display_name", "Unknown"))
+		if _embedded_sort_mode == "region":
+			txt += " [%s]" % str(c.get("region_id", "未知"))
+		var idx = _embedded_roster_list.add_item(txt)
+		_embedded_roster_list.set_item_metadata(idx, str(c.get("id", "")))
+		
+	_embedded_detail_label.text = "请选择左侧角色查看详情。"
+
+func _on_embedded_roster_selected(index: int) -> void:
+	if index < 0:
+		return
+	var cid := str(_embedded_roster_list.get_item_metadata(index))
+	var view: Dictionary = CharacterService.get_character_view(StringName(cid), 5, RunState.mode)
+	if view.is_empty():
+		_embedded_detail_label.text = "无法获取角色详情。"
+		return
+		
+	var detail: Dictionary = view.get("detail", {}) as Dictionary
+	var text := ""
+	text += "[b]%s[/b] (ID: %s)\n" % [detail.get("display_name", ""), cid]
+	var aff := detail.get("affiliation", {}) as Dictionary
+	text += "位置: %s\n" % [aff.get("region_id", "")]
+	
+	var attrs := detail.get("attributes", {}) as Dictionary
+	text += "特质: %s\n" % [",".join(attrs.get("morality_tags", []))]
+	text += "性格: %s\n\n" % [",".join(attrs.get("temperament_tags", []))]
+	
+	text += "[b]- 近期行为 -[/b]\n"
+	var timeline: Array = view.get("timeline", []) as Array
+	for i in range(min(5, timeline.size())):
+		var t = timeline[i]
+		text += "[color=gray][%s][/color] %s: %s\n" % [t.get("timestamp", ""), t.get("title", ""), t.get("result", "")]
+	if timeline.is_empty():
+		text += "尚无近期行为。"
+	_embedded_detail_label.text = text
 
 func _refresh_roster() -> void:
 	_current_roster = CharacterService.get_roster(RunState.mode)
@@ -1028,18 +1423,23 @@ func _build_map_ui() -> void:
 	
 	var close_btn := Button.new()
 	close_btn.text = "关闭"
-	close_btn.pressed.connect(func(): _map_panel.hide())
+	close_btn.pressed.connect(func():
+		_map_panel.hide()
+		if _map_hsplit and _map_hsplit.get_parent() != _map_content_panel.get_node("MapVBox"):
+			_map_hsplit.get_parent().remove_child(_map_hsplit)
+			_map_content_panel.get_node("MapVBox").add_child(_map_hsplit)
+	)
 	header_hbox.add_child(close_btn)
 	
 	# Body
-	var hsplit := HSplitContainer.new()
-	hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(hsplit)
+	_map_hsplit = HSplitContainer.new()
+	_map_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_map_content_panel.get_node("MapVBox").add_child(_map_hsplit)
 	
 	# Left: Region Tree
 	var tree_vbox := VBoxContainer.new()
 	tree_vbox.custom_minimum_size = Vector2(250, 0)
-	hsplit.add_child(tree_vbox)
+	_map_hsplit.add_child(tree_vbox)
 	
 	var tree_title := Label.new()
 	tree_title.text = "- 区域层级 -"
@@ -1054,7 +1454,7 @@ func _build_map_ui() -> void:
 	# Right: Info & Characters
 	var right_vsplit := VSplitContainer.new()
 	right_vsplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hsplit.add_child(right_vsplit)
+	_map_hsplit.add_child(right_vsplit)
 	
 	var info_vbox := VBoxContainer.new()
 	info_vbox.custom_minimum_size = Vector2(0, 150)
@@ -1097,6 +1497,11 @@ func _on_region_character_activated(index: int) -> void:
 
 
 func _on_view_map_pressed() -> void:
+	if _map_hsplit and _map_panel:
+		var map_vbox = _map_panel.get_child(0).get_child(0) # margin -> vbox
+		if _map_hsplit.get_parent() != map_vbox:
+			_map_hsplit.get_parent().remove_child(_map_hsplit)
+			map_vbox.add_child(_map_hsplit)
 	_map_panel.show()
 	_refresh_map()
 

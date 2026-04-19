@@ -88,11 +88,17 @@ func _on_continue_requested() -> void:
 	if not is_instance_valid(simulation_runner):
 		EventLog.add_entry("继续游戏失败：SimulationRunner 不可用")
 		return
+	if not is_instance_valid(SaveService):
+		EventLog.add_entry("继续游戏失败：SaveService 不可用")
+		return
 
 	simulation_runner.setup_services(TimeService, EventLog, RunState, LocationService)
 	var loaded_data: Dictionary = SaveService.load_game()
 	if loaded_data.is_empty():
-		EventLog.add_entry("继续游戏失败：未找到可用存档")
+		var save_error := "unknown"
+		if SaveService.has_method("get_last_error"):
+			save_error = str(SaveService.get_last_error())
+		EventLog.add_entry("继续游戏失败：存档读取错误 %s" % save_error)
 		return
 
 	var snapshot: Dictionary = _extract_snapshot_from_save_payload(loaded_data)
@@ -102,12 +108,16 @@ func _on_continue_requested() -> void:
 
 	var mode_name := StringName(str(snapshot.get("mode", "human")))
 	RunState.set_mode(mode_name)
+	RunState.creation_params = (snapshot.get("creation_params", {}) as Dictionary).duplicate(true)
+	RunState.world_seed = int((snapshot.get("world_seed", {}) as Dictionary).get("seed_value", -1))
+	if is_instance_valid(TimeService) and snapshot.has("speed_tier") and TimeService.has_method("set_speed_tier"):
+		TimeService.set_speed_tier(int(snapshot.get("speed_tier", 2)))
 	var restore_result: Dictionary = simulation_runner.load_snapshot(snapshot)
 	if not bool(restore_result.get("ok", false)):
 		EventLog.add_entry("继续游戏失败：快照恢复错误 %s" % str(restore_result.get("error", "unknown")))
 		return
 
-	RunState.set_phase(&"running")
+	RunState.set_phase(&"main_play")
 	if is_instance_valid(ui_root):
 		ui_root.hide_main_menu()
 	_setup_auto_advance_timer()

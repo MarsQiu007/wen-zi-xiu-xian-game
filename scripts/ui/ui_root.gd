@@ -8,11 +8,14 @@ signal character_created(params: Dictionary)
 signal world_initialized()
 
 var _main_menu_panel: PanelContainer
+var _main_menu_continue_btn: Button
+var _main_menu_save_info_label: Label
 var _mode_select_screen: PanelContainer
 var _char_creation_screen: PanelContainer
 var _game_ui_container: MarginContainer
 var _world_init_screen: PanelContainer
 var _time_control_panel: HBoxContainer
+var _save_button: Button
 
 var _status_panel: PanelContainer
 var _status_label: Label
@@ -40,6 +43,27 @@ var _detail_label: RichTextLabel
 var _timeline_label: RichTextLabel
 var _current_roster: Array[Dictionary] = []
 
+# Left panel - NPC brief info
+var _npc_brief_panel: PanelContainer
+var _npc_name_label: Label
+var _npc_realm_label: Label
+var _npc_age_label: Label
+var _npc_location_label: Label
+var _npc_detail_btn: Button
+
+# Left panel - Tab buttons
+var _tab_button_box: VBoxContainer
+var _tab_buttons: Dictionary = {}  # tab_name -> Button
+var _active_tab: String = "log"  # Default tab
+
+# Right panel - Content panels
+var _right_content_panel: PanelContainer
+var _log_content_panel: PanelContainer
+var _map_content_panel: PanelContainer
+var _world_chars_panel: PanelContainer
+var _favor_panel: PanelContainer
+var _inventory_panel: PanelContainer
+
 # Map UI components
 var _map_panel: PanelContainer
 var _region_tree: Tree
@@ -54,6 +78,7 @@ var TimeService: Node
 var RunState: Node
 var CharacterService: Node
 var LocationService: Node
+var SaveService: Node
 
 var _loading_label: Label
 
@@ -112,6 +137,8 @@ func _bind_singletons() -> void:
 		CharacterService = root_node.get_node_or_null("CharacterService")
 	if LocationService == null:
 		LocationService = root_node.get_node_or_null("LocationService")
+	if SaveService == null:
+		SaveService = root_node.get_node_or_null("SaveService")
 
 
 func bind_runner(runner: Node) -> void:
@@ -121,6 +148,7 @@ func bind_runner(runner: Node) -> void:
 
 
 func show_main_menu() -> void:
+	_refresh_main_menu_continue_button()
 	if _main_menu_panel:
 		_main_menu_panel.show()
 	if _game_ui_container:
@@ -173,9 +201,18 @@ func _build_main_menu() -> void:
 	var continue_btn := Button.new()
 	continue_btn.name = "ContinueBtn"
 	continue_btn.text = "继续游戏"
-	continue_btn.disabled = true # 暂不支持
 	continue_btn.pressed.connect(func(): menu_continue_requested.emit())
 	btn_vbox.add_child(continue_btn)
+	_main_menu_continue_btn = continue_btn
+
+	var save_info_label := Label.new()
+	save_info_label.name = "SaveInfoLabel"
+	save_info_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	save_info_label.modulate = Color(0.75, 0.9, 1.0)
+	btn_vbox.add_child(save_info_label)
+	_main_menu_save_info_label = save_info_label
+
+	_refresh_main_menu_continue_button()
 
 
 func _build_minimal_ui() -> void:
@@ -223,53 +260,113 @@ func _build_minimal_ui() -> void:
 	status_hbox.add_child(_time_control_panel)
 	_time_control_panel.hide()
 
-	# --- Main Content Area ---
-	var content_hbox := HBoxContainer.new()
-	content_hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	main_vbox.add_child(content_hbox)
+	_save_button = Button.new()
+	_save_button.name = "SaveButton"
+	_save_button.text = "保存"
+	_save_button.pressed.connect(_on_save_pressed)
+	status_hbox.add_child(_save_button)
 
-	# Action Area (Left)
-	_action_panel = PanelContainer.new()
-	_action_panel.name = "ActionPanel"
-	_action_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_action_panel.size_flags_stretch_ratio = 1.0
-	content_hbox.add_child(_action_panel)
-	
-	_action_box = VBoxContainer.new()
-	_action_box.name = "ActionBox"
-	_action_panel.add_child(_action_box)
-	
-	var action_title := Label.new()
-	action_title.text = "- 操作区 -"
-	_action_box.add_child(action_title)
-	
-	var view_char_btn := Button.new()
-	view_char_btn.name = "ViewCharactersBtn"
-	view_char_btn.text = "查看角色情报"
-	view_char_btn.pressed.connect(_on_view_characters_pressed)
-	_action_box.add_child(view_char_btn)
-	
-	var view_map_btn := Button.new()
-	view_map_btn.name = "ViewMapBtn"
-	view_map_btn.text = "查看世界地图"
-	view_map_btn.pressed.connect(_on_view_map_pressed)
-	_action_box.add_child(view_map_btn)
-	
-	var test_action_btn := Button.new()
-	test_action_btn.name = "TestActionBtn"
-	test_action_btn.text = "执行基础修炼"
-	test_action_btn.pressed.connect(_on_test_action_pressed)
-	_action_box.add_child(test_action_btn)
+	# --- Main Content Area (HSplitContainer) ---
+	var content_hsplit := HSplitContainer.new()
+	content_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	main_vbox.add_child(content_hsplit)
 
-	# Log Area (Right)
-	_log_panel = PanelContainer.new()
-	_log_panel.name = "LogPanel"
-	_log_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_log_panel.size_flags_stretch_ratio = 2.0
-	content_hbox.add_child(_log_panel)
+	# --- Left Panel (ratio 3) ---
+	var left_panel := PanelContainer.new()
+	left_panel.name = "LeftPanel"
+	left_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	left_panel.size_flags_stretch_ratio = 3.0
+	content_hsplit.add_child(left_panel)
+	
+	var left_vbox := VBoxContainer.new()
+	left_panel.add_child(left_vbox)
+
+	# NPC Brief Info Area
+	_npc_brief_panel = PanelContainer.new()
+	_npc_brief_panel.name = "NPCBriefPanel"
+	left_vbox.add_child(_npc_brief_panel)
+	
+	var npc_vbox := VBoxContainer.new()
+	_npc_brief_panel.add_child(npc_vbox)
+	
+	var avatar_rect := ColorRect.new()
+	avatar_rect.color = Color(0.3, 0.3, 0.4)
+	avatar_rect.custom_minimum_size = Vector2(80, 80)
+	avatar_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	npc_vbox.add_child(avatar_rect)
+	
+	var avatar_lbl := Label.new()
+	avatar_lbl.text = "头像"
+	avatar_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	avatar_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	avatar_rect.add_child(avatar_lbl)
+
+	_npc_name_label = Label.new()
+	_npc_name_label.text = "姓名: 未知"
+	_npc_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	npc_vbox.add_child(_npc_name_label)
+
+	_npc_realm_label = Label.new()
+	_npc_realm_label.text = "境界: 凡人"
+	_npc_realm_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	npc_vbox.add_child(_npc_realm_label)
+
+	_npc_age_label = Label.new()
+	_npc_age_label.text = "年龄: 未知"
+	_npc_age_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	npc_vbox.add_child(_npc_age_label)
+
+	_npc_location_label = Label.new()
+	_npc_location_label.text = "位置: 未知"
+	_npc_location_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	npc_vbox.add_child(_npc_location_label)
+
+	_npc_detail_btn = Button.new()
+	_npc_detail_btn.text = "详情"
+	_npc_detail_btn.pressed.connect(_on_view_characters_pressed)
+	npc_vbox.add_child(_npc_detail_btn)
+
+	# Separator
+	var left_sep := HSeparator.new()
+	left_vbox.add_child(left_sep)
+
+	# Tab Buttons Area
+	_tab_button_box = VBoxContainer.new()
+	_tab_button_box.name = "TabButtonBox"
+	_tab_button_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_tab_button_box.add_theme_constant_override("separation", 8)
+	left_vbox.add_child(_tab_button_box)
+
+	var tabs := [
+		{"id": "log", "name": "事件日志"},
+		{"id": "map", "name": "世界地图"},
+		{"id": "world_chars", "name": "世界角色"},
+		{"id": "favor", "name": "人际好感"},
+		{"id": "inventory", "name": "个人背包"}
+	]
+
+	for tab in tabs:
+		var btn := Button.new()
+		btn.text = tab["name"]
+		btn.custom_minimum_size = Vector2(0, 40)
+		btn.pressed.connect(func(): _on_tab_button_pressed(tab["id"]))
+		_tab_button_box.add_child(btn)
+		_tab_buttons[tab["id"]] = btn
+
+	# --- Right Panel (ratio 7) ---
+	_right_content_panel = PanelContainer.new()
+	_right_content_panel.name = "RightPanel"
+	_right_content_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_right_content_panel.size_flags_stretch_ratio = 7.0
+	content_hsplit.add_child(_right_content_panel)
+	
+	# Log Content Panel
+	_log_content_panel = PanelContainer.new()
+	_log_content_panel.name = "LogContentPanel"
+	_right_content_panel.add_child(_log_content_panel)
 	
 	var log_vbox := VBoxContainer.new()
-	_log_panel.add_child(log_vbox)
+	_log_content_panel.add_child(log_vbox)
 	
 	var log_toolbar := HBoxContainer.new()
 	log_toolbar.add_theme_constant_override("separation", 8)
@@ -302,6 +399,75 @@ func _build_minimal_ui() -> void:
 	_log_label.scroll_following = true
 	log_vbox.add_child(_log_label)
 
+	# Map Content Panel Placeholder
+	_map_content_panel = PanelContainer.new()
+	_map_content_panel.name = "MapContentPanel"
+	_map_content_panel.hide()
+	var map_lbl := Label.new()
+	map_lbl.text = "地图功能正在开发中 (T14)"
+	map_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_map_content_panel.add_child(map_lbl)
+	_right_content_panel.add_child(_map_content_panel)
+
+	# World Chars Content Panel Placeholder
+	_world_chars_panel = PanelContainer.new()
+	_world_chars_panel.name = "WorldCharsContentPanel"
+	_world_chars_panel.hide()
+	var chars_lbl := Label.new()
+	chars_lbl.text = "世界角色功能正在开发中 (T14)"
+	chars_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_world_chars_panel.add_child(chars_lbl)
+	_right_content_panel.add_child(_world_chars_panel)
+
+	# Favor Content Panel Placeholder
+	_favor_panel = PanelContainer.new()
+	_favor_panel.name = "FavorContentPanel"
+	_favor_panel.hide()
+	var favor_lbl := Label.new()
+	favor_lbl.text = "好感度功能正在开发中 (T16)"
+	favor_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_favor_panel.add_child(favor_lbl)
+	_right_content_panel.add_child(_favor_panel)
+
+	# Inventory Content Panel Placeholder
+	_inventory_panel = PanelContainer.new()
+	_inventory_panel.name = "InventoryContentPanel"
+	_inventory_panel.hide()
+	var inv_lbl := Label.new()
+	inv_lbl.text = "背包功能正在开发中"
+	inv_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_inventory_panel.add_child(inv_lbl)
+	_right_content_panel.add_child(_inventory_panel)
+	
+	_active_tab = "log"
+	_update_tab_highlight()
+	_update_right_content_visibility()
+
+
+func _on_tab_button_pressed(tab_name: String) -> void:
+	_active_tab = tab_name
+	_update_tab_highlight()
+	_update_right_content_visibility()
+
+func _update_tab_highlight() -> void:
+	for tab_name in _tab_buttons:
+		var btn: Button = _tab_buttons[tab_name]
+		if tab_name == _active_tab:
+			btn.modulate = Color(0.2, 1.0, 0.2)  # Green highlight
+		else:
+			btn.modulate = Color(1.0, 1.0, 1.0)  # Normal
+
+func _update_right_content_visibility() -> void:
+	if _log_content_panel:
+		_log_content_panel.visible = (_active_tab == "log")
+	if _map_content_panel:
+		_map_content_panel.visible = (_active_tab == "map")
+	if _world_chars_panel:
+		_world_chars_panel.visible = (_active_tab == "world_chars")
+	if _favor_panel:
+		_favor_panel.visible = (_active_tab == "favor")
+	if _inventory_panel:
+		_inventory_panel.visible = (_active_tab == "inventory")
 
 func _refresh_text() -> void:
 	if _status_label == null:
@@ -319,6 +485,16 @@ func _refresh_text() -> void:
 		_guide_label.text = "引导：收集香火，培养眷者；建立教团，应对巡察。"
 	else:
 		_guide_label.text = ""
+
+	# Update NPC brief info
+	if _sim_runner != null and _sim_runner.has_method("get_runtime_characters"):
+		var characters: Array = _sim_runner.get_runtime_characters()
+		if characters.size() > 0:
+			var player_char: Dictionary = characters[0]  # First character is the player
+			if _npc_name_label: _npc_name_label.text = "姓名: %s" % str(player_char.get("display_name", "未知"))
+			if _npc_realm_label: _npc_realm_label.text = "境界: %s" % str(player_char.get("realm", "凡人"))
+			if _npc_age_label: _npc_age_label.text = "年龄: %s" % str(player_char.get("age", "未知"))
+			if _npc_location_label: _npc_location_label.text = "位置: %s" % str(player_char.get("region_id", "未知"))
 
 func _refresh_log() -> void:
 	if _log_label == null:
@@ -445,6 +621,82 @@ func _on_log_entry_added(_entry: Dictionary) -> void:
 
 func _on_time_advanced(_total_minutes: int) -> void:
 	_refresh_text()
+
+
+func _on_save_pressed() -> void:
+	if SaveService == null:
+		EventLog.add_entry("保存失败：SaveService 不可用")
+		return
+	if _sim_runner == null or not _sim_runner.has_method("get_snapshot"):
+		EventLog.add_entry("保存失败：SimulationRunner 不可用")
+		return
+	var snapshot: Dictionary = _sim_runner.get_snapshot()
+	var save_ok: bool = SaveService.save_game(snapshot)
+	if save_ok:
+		EventLog.add_entry("保存成功")
+	else:
+		var save_error := "unknown"
+		if SaveService.has_method("get_last_error"):
+			save_error = str(SaveService.get_last_error())
+		EventLog.add_entry("保存失败：%s" % save_error)
+
+
+func _refresh_main_menu_continue_button() -> void:
+	if _main_menu_continue_btn == null:
+		return
+	if SaveService == null:
+		_main_menu_continue_btn.disabled = true
+		_main_menu_continue_btn.text = "继续游戏（存档服务不可用）"
+		if _main_menu_save_info_label != null:
+			_main_menu_save_info_label.text = ""
+		return
+	if not SaveService.has_method("has_save_slot") or not SaveService.has_method("get_save_info"):
+		_main_menu_continue_btn.disabled = true
+		_main_menu_continue_btn.text = "继续游戏（功能不可用）"
+		if _main_menu_save_info_label != null:
+			_main_menu_save_info_label.text = ""
+		return
+
+	if not SaveService.has_save_slot():
+		_main_menu_continue_btn.disabled = true
+		_main_menu_continue_btn.text = "继续游戏（无存档）"
+		if _main_menu_save_info_label != null:
+			_main_menu_save_info_label.text = ""
+		return
+
+	_main_menu_continue_btn.disabled = false
+	_main_menu_continue_btn.text = "继续游戏"
+
+	var save_info: Dictionary = SaveService.get_save_info()
+	if not bool(save_info.get("ok", false)):
+		if _main_menu_save_info_label != null:
+			_main_menu_save_info_label.text = "存档信息读取失败"
+		return
+
+	var timestamp := int(save_info.get("timestamp", 0))
+	var mode_text := "unknown"
+	if SaveService.has_method("load_game"):
+		var loaded_data: Dictionary = SaveService.load_game()
+		if not loaded_data.is_empty():
+			var snapshot: Dictionary = _extract_snapshot_from_save_payload(loaded_data)
+			if not snapshot.is_empty():
+				mode_text = str(snapshot.get("mode", "unknown"))
+	var time_text := Time.get_datetime_string_from_unix_time(timestamp, true)
+	if _main_menu_save_info_label != null:
+		_main_menu_save_info_label.text = "存档时间：%s | 模式：%s" % [time_text, mode_text]
+
+
+func _extract_snapshot_from_save_payload(loaded_data: Dictionary) -> Dictionary:
+	var wrapped_snapshot: Variant = loaded_data.get("simulation_snapshot", {})
+	if wrapped_snapshot is Dictionary:
+		var snapshot: Dictionary = wrapped_snapshot
+		if not snapshot.is_empty():
+			return snapshot
+
+	if loaded_data.has("seed") and loaded_data.has("runtime_characters"):
+		return loaded_data
+
+	return {}
 
 
 func _on_mode_changed(_mode: StringName) -> void:

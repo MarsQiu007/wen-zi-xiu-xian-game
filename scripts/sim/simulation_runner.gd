@@ -278,6 +278,9 @@ func get_snapshot() -> Dictionary:
 	}
 	if _time_service() != null and _time_service().has_method("get_snapshot"):
 		time_snapshot = _normalize_snapshot_value(_time_service().get_snapshot())
+	var speed_tier_snapshot := int(time_snapshot.get("speed_tier", 2))
+	if _time_service() != null:
+		speed_tier_snapshot = int(_time_service().get("speed_tier"))
 
 	var event_entries: Array = []
 	if _event_log() != null and _event_log().has_method("get_entries"):
@@ -298,6 +301,7 @@ func get_snapshot() -> Dictionary:
 		"relationship_network": _normalize_snapshot_value(_relationship_network.to_dict() if _relationship_network != null else {}),
 		"memory_system": _normalize_snapshot_value(_memory_system.to_dict() if _memory_system != null else {}),
 		"npc_decision_intervals": _normalize_snapshot_value(_npc_decision_intervals),
+		"speed_tier": speed_tier_snapshot,
 		"log_cursor": {
 			"entry_count": event_entries.size(),
 			"last_entry_id": last_entry_id,
@@ -324,6 +328,7 @@ func load_snapshot(snapshot: Dictionary) -> Dictionary:
 	var relationship_network_data: Dictionary = normalized.get("relationship_network", {})
 	var memory_system_data: Dictionary = normalized.get("memory_system", {})
 	var npc_decision_intervals_data: Dictionary = normalized.get("npc_decision_intervals", {})
+	var speed_tier_data := int(normalized.get("speed_tier", 2))
 	var log_cursor: Dictionary = normalized.get("log_cursor", {})
 	var event_entries: Array = normalized.get("event_log_entries", [])
 
@@ -336,6 +341,8 @@ func load_snapshot(snapshot: Dictionary) -> Dictionary:
 
 	if _time_service() != null:
 		_time_service().reset_clock(restored_day, restored_minute)
+		if _time_service().has_method("set_speed_tier"):
+			_time_service().set_speed_tier(speed_tier_data)
 
 	var restored_runtime_characters: Array[Dictionary] = []
 	for character in runtime_characters_data:
@@ -2303,6 +2310,13 @@ func _validate_snapshot_payload(snapshot: Dictionary) -> Dictionary:
 			"actual_type": typeof(snapshot.get("npc_decision_intervals", null)),
 		})
 
+	if snapshot.has("speed_tier") and not _is_integer_snapshot_number(snapshot.get("speed_tier", null)):
+		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
+			"field": "speed_tier",
+			"expected": "integer number",
+			"actual_type": typeof(snapshot.get("speed_tier", null)),
+		})
+
 	if not snapshot.get("log_cursor", null) is Dictionary:
 		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
 			"field": "log_cursor",
@@ -2370,6 +2384,7 @@ func _validate_snapshot_payload(snapshot: Dictionary) -> Dictionary:
 		"relationship_network": _normalize_snapshot_value(snapshot.get("relationship_network", {})),
 		"memory_system": _normalize_snapshot_value(snapshot.get("memory_system", {})),
 		"npc_decision_intervals": _normalize_snapshot_value(snapshot.get("npc_decision_intervals", {})),
+		"speed_tier": int(snapshot.get("speed_tier", 2)),
 		"log_cursor": {
 			"entry_count": expected_entry_count,
 			"last_entry_id": str(log_cursor.get("last_entry_id", "")),

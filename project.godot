@@ -16,7 +16,10 @@ config/features=PackedStringArray("4.6")
 
 [autoload]
 
+McpBridge="*res://mcp_bridge.gd"
 TimeService="*res://autoload/time_service.gd"
 RunState="*res://autoload/run_state.gd"
 SaveService="*res://autoload/save_service.gd"
 EventLog="*res://autoload/event_log.gd"
+CharacterService="*res://autoload/character_service.gd"
+LocationService="*res://autoload/location_service.gd"

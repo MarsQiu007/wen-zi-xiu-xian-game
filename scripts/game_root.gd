@@ -26,6 +26,7 @@ func _ready() -> void:
 		ui_root.menu_continue_requested.connect(_on_continue_requested)
 		ui_root.mode_selected.connect(_on_mode_selected)
 		ui_root.character_created.connect(_on_character_created)
+		ui_root.world_initialized.connect(_on_world_initialized)
 		ui_root.show_main_menu()
 
 
@@ -59,6 +60,25 @@ func _on_character_created(params: Dictionary) -> void:
 
 
 func _on_world_initialized() -> void:
+	_bind_singletons()
+	if not is_instance_valid(simulation_runner):
+		EventLog.add_entry("世界初始化失败：SimulationRunner 不可用")
+		return
+
+	var world_seed: int = int(RunState.world_seed)
+	if world_seed < 0:
+		world_seed = int(Time.get_unix_time_from_system())
+		RunState.world_seed = world_seed
+
+	simulation_runner.setup_services(TimeService, EventLog, RunState, LocationService)
+	simulation_runner.bootstrap_from_creation(
+		RunState.creation_params,
+		{
+			"seed_value": world_seed,
+			"region_count": 7,
+			"npc_count": 30,
+		}
+	)
 	RunState.set_phase(&"main_play")
 	_setup_auto_advance_timer()
 
@@ -144,4 +164,4 @@ func _on_auto_advance_timeout() -> void:
 		return
 	if RunState.phase != &"running" and RunState.phase != &"ready" and RunState.phase != &"main_play":
 		return
-	simulation_runner.advance_one_day(false, true)
+	simulation_runner.advance_tick(TimeService.get_hours_per_tick())

@@ -365,12 +365,17 @@ func _build_minimal_ui() -> void:
 	_right_content_panel = PanelContainer.new()
 	_right_content_panel.name = "RightPanel"
 	_right_content_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_right_content_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_right_content_panel.size_flags_stretch_ratio = 7.0
+	_right_content_panel.clip_contents = true
 	content_hsplit.add_child(_right_content_panel)
 	
 	# Log Content Panel
 	_log_content_panel = PanelContainer.new()
 	_log_content_panel.name = "LogContentPanel"
+	_log_content_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_log_content_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log_content_panel.clip_contents = true
 	_right_content_panel.add_child(_log_content_panel)
 	
 	var log_vbox := VBoxContainer.new()
@@ -415,14 +420,19 @@ func _build_minimal_ui() -> void:
 	
 	_log_label = RichTextLabel.new()
 	_log_label.name = "LogTextLabel"
+	_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_log_label.scroll_following = true
+	_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_log_label.bbcode_enabled = true
 	log_vbox.add_child(_log_label)
 
 	# Map Content Panel
 	_map_content_panel = PanelContainer.new()
 	_map_content_panel.name = "MapContentPanel"
+	_map_content_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_map_content_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_map_content_panel.clip_contents = true
 	_map_content_panel.hide()
 	
 	var map_vbox := VBoxContainer.new()
@@ -451,6 +461,9 @@ func _build_minimal_ui() -> void:
 	# World Chars Content Panel
 	_world_chars_panel = PanelContainer.new()
 	_world_chars_panel.name = "WorldCharsContentPanel"
+	_world_chars_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_world_chars_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_world_chars_panel.clip_contents = true
 	_world_chars_panel.hide()
 	
 	var chars_vbox := VBoxContainer.new()
@@ -530,6 +543,9 @@ func _build_minimal_ui() -> void:
 	# Favor Content Panel
 	_favor_panel = PanelContainer.new()
 	_favor_panel.name = "FavorContentPanel"
+	_favor_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_favor_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_favor_panel.clip_contents = true
 	_favor_panel.hide()
 	
 	var favor_margin := MarginContainer.new()
@@ -578,6 +594,9 @@ func _build_minimal_ui() -> void:
 	# Inventory Content Panel Placeholder
 	_inventory_panel = PanelContainer.new()
 	_inventory_panel.name = "InventoryContentPanel"
+	_inventory_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_inventory_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_inventory_panel.clip_contents = true
 	_inventory_panel.hide()
 	var inv_lbl := Label.new()
 	inv_lbl.text = "背包功能正在开发中"

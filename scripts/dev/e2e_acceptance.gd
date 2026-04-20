@@ -17,16 +17,6 @@ const NpcMemorySystemScript = preload("res://scripts/npc/npc_memory_system.gd")
 const REPORT_PATH := ".sisyphus/evidence/task-19-e2e-report.txt"
 
 
-class _SeedDataAdapter:
-	extends Resource
-
-	var seed_value: int = 0
-	var region_count: int = 7
-	var npc_count: int = 30
-	var resource_density: float = 0.5
-	var monster_density: float = 0.3
-
-
 func execute(scene_tree: SceneTree) -> Variant:
 	return run_all_tests()
 
@@ -85,7 +75,7 @@ func test_full_flow() -> Dictionary:
 	)
 
 	var generator = WorldGeneratorScript.new()
-	var world_data: Dictionary = generator.generate(_make_seed_resource(seed_data.seed_value, seed_data.region_count, seed_data.npc_count, seed_data.resource_density, seed_data.monster_density))
+	var world_data: Dictionary = generator.generate(_make_seed_data(seed_data.seed_value, seed_data.region_count, seed_data.npc_count, seed_data.resource_density, seed_data.monster_density))
 	checks["world_generation_called"] = _expect_true(not world_data.is_empty(), "WorldGenerator.generate() 返回空数据", errors)
 	checks["world_has_characters"] = _expect_true((world_data.get("characters", []) as Array).size() > 0, "生成世界缺少 characters", errors)
 	checks["world_has_relationships"] = _expect_true((world_data.get("relationships", []) as Array).size() > 0, "生成世界缺少 relationships", errors)
@@ -268,13 +258,13 @@ func test_seed_diversity() -> Dictionary:
 	seed_a.seed_value = 111
 	seed_a.region_count = 7
 	seed_a.npc_count = 30
-	var world_a: Dictionary = generator.generate(_make_seed_resource(seed_a.seed_value, seed_a.region_count, seed_a.npc_count, seed_a.resource_density, seed_a.monster_density))
+	var world_a: Dictionary = generator.generate(_make_seed_data(seed_a.seed_value, seed_a.region_count, seed_a.npc_count, seed_a.resource_density, seed_a.monster_density))
 
 	var seed_b = WorldSeedDataScript.new()
 	seed_b.seed_value = 222
 	seed_b.region_count = 7
 	seed_b.npc_count = 30
-	var world_b: Dictionary = generator.generate(_make_seed_resource(seed_b.seed_value, seed_b.region_count, seed_b.npc_count, seed_b.resource_density, seed_b.monster_density))
+	var world_b: Dictionary = generator.generate(_make_seed_data(seed_b.seed_value, seed_b.region_count, seed_b.npc_count, seed_b.resource_density, seed_b.monster_density))
 
 	var set_a := _build_npc_identity_set(world_a)
 	var set_b := _build_npc_identity_set(world_b)
@@ -408,14 +398,14 @@ func _build_npc_identity_set(world_data: Dictionary) -> Dictionary:
 	return result
 
 
-func _make_seed_resource(seed_value: int, region_count: int = 7, npc_count: int = 30, resource_density: float = 0.5, monster_density: float = 0.3) -> Resource:
-	var seed_resource := _SeedDataAdapter.new()
-	seed_resource.seed_value = seed_value
-	seed_resource.region_count = region_count
-	seed_resource.npc_count = npc_count
-	seed_resource.resource_density = resource_density
-	seed_resource.monster_density = monster_density
-	return seed_resource
+func _make_seed_data(seed_value: int, region_count: int = 7, npc_count: int = 30, resource_density: float = 0.5, monster_density: float = 0.3) -> WorldSeedData:
+	var seed_data := WorldSeedDataScript.new()
+	seed_data.seed_value = seed_value
+	seed_data.region_count = region_count
+	seed_data.npc_count = npc_count
+	seed_data.resource_density = resource_density
+	seed_data.monster_density = monster_density
+	return seed_data
 
 
 func _set_difference_rate(set_a: Dictionary, set_b: Dictionary) -> float:

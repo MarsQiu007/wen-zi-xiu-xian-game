@@ -5,7 +5,7 @@ const SeededRandomScript = preload("res://scripts/sim/seeded_random.gd")
 const NameGeneratorScript = preload("res://scripts/world/name_generator.gd")
 
 
-func generate(seed_data: Resource) -> Dictionary:
+func generate(seed_data: WorldSeedData) -> Dictionary:
 	var rng: RefCounted = SeededRandomScript.new()
 	rng.set_seed(int(seed_data.seed_value))
 
@@ -27,7 +27,7 @@ func generate(seed_data: Resource) -> Dictionary:
 	}
 
 
-func generate_regions(seed_data: Resource, rng: RefCounted) -> Array[Dictionary]:
+func generate_regions(seed_data: WorldSeedData, rng: RefCounted) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var region_types := ["mountain", "city", "village", "secret_realm", "wilderness"]
 
@@ -59,7 +59,7 @@ func generate_regions(seed_data: Resource, rng: RefCounted) -> Array[Dictionary]
 	return result
 
 
-func generate_characters(seed_data: Resource, regions: Array[Dictionary], rng: RefCounted) -> Array[Dictionary]:
+func generate_characters(seed_data: WorldSeedData, regions: Array[Dictionary], rng: RefCounted) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var genders := ["male", "female"]
 	var professions := ["farmer", "merchant", "scholar", "warrior", "alchemist", "herbalist", "hunter", "artisan", "monk", "wanderer"]

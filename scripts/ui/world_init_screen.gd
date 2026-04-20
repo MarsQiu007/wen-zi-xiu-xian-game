@@ -68,7 +68,8 @@ func start_init() -> void:
 		return
 
 	var seed_val: int = int(RunState.get("world_seed"))
-	var creation_params: Dictionary = RunState.get("creation_params", {})
+	var _cp: Variant = RunState.get("creation_params")
+	var creation_params: Dictionary = _cp if _cp is Dictionary else {}
 	if seed_val == -1 and creation_params.has("custom_seed"):
 		seed_val = int(creation_params.get("custom_seed", seed_val))
 	if seed_val == 0 and creation_params.has("custom_seed"):

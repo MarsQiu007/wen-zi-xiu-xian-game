@@ -14,8 +14,9 @@ func add_memory(character_id: StringName, entry: NpcMemoryEntry) -> void:
 	if entry == null:
 		return
 	if not _memories.has(character_id):
-		_memories[character_id] = []
-	var memories: Array[NpcMemoryEntry] = _memories[character_id]
+		var initial_memories: Array[NpcMemoryEntry] = []
+		_memories[character_id] = initial_memories
+	var memories: Array[NpcMemoryEntry] = _get_memories_typed(character_id)
 	memories.append(entry)
 	if memories.size() <= _max_memories_per_npc:
 		return
@@ -28,7 +29,7 @@ func add_memory(character_id: StringName, entry: NpcMemoryEntry) -> void:
 
 
 func get_memories(character_id: StringName) -> Array[NpcMemoryEntry]:
-	var source: Array[NpcMemoryEntry] = _memories.get(character_id, [])
+	var source: Array[NpcMemoryEntry] = _get_memories_typed(character_id)
 	if source.is_empty():
 		return []
 	var result: Array[NpcMemoryEntry] = source.duplicate()
@@ -43,7 +44,7 @@ func get_memories(character_id: StringName) -> Array[NpcMemoryEntry]:
 func get_recent_memories(character_id: StringName, count: int = 5) -> Array[NpcMemoryEntry]:
 	if count <= 0:
 		return []
-	var source: Array[NpcMemoryEntry] = _memories.get(character_id, [])
+	var source: Array[NpcMemoryEntry] = _get_memories_typed(character_id)
 	if source.is_empty():
 		return []
 	var result: Array[NpcMemoryEntry] = source.duplicate()
@@ -59,7 +60,7 @@ func get_recent_memories(character_id: StringName, count: int = 5) -> Array[NpcM
 
 func get_memories_about(character_id: StringName, about_id: StringName) -> Array[NpcMemoryEntry]:
 	var result: Array[NpcMemoryEntry] = []
-	var source: Array[NpcMemoryEntry] = _memories.get(character_id, [])
+	var source: Array[NpcMemoryEntry] = _get_memories_typed(character_id)
 	for memory in source:
 		if memory.related_ids.has(String(about_id)):
 			result.append(memory)
@@ -72,7 +73,7 @@ func get_memories_about(character_id: StringName, about_id: StringName) -> Array
 func decay_memories(character_id: StringName, current_hours: float) -> void:
 	if not _memories.has(character_id):
 		return
-	var source: Array[NpcMemoryEntry] = _memories[character_id]
+	var source: Array[NpcMemoryEntry] = _get_memories_typed(character_id)
 	if source.is_empty():
 		_memories.erase(character_id)
 		return
@@ -84,6 +85,22 @@ func decay_memories(character_id: StringName, current_hours: float) -> void:
 		_memories.erase(character_id)
 		return
 	_memories[character_id] = kept
+
+
+func _get_memories_typed(character_id: StringName) -> Array[NpcMemoryEntry]:
+	if not _memories.has(character_id):
+		return []
+	var raw: Variant = _memories[character_id]
+	if not (raw is Array):
+		var empty_entries: Array[NpcMemoryEntry] = []
+		_memories[character_id] = empty_entries
+		return empty_entries
+	var typed_entries: Array[NpcMemoryEntry] = []
+	for item in raw:
+		if item is NpcMemoryEntry:
+			typed_entries.append(item)
+	_memories[character_id] = typed_entries
+	return typed_entries
 
 
 func get_retention_score(character_id: StringName, entry: NpcMemoryEntry, current_hours: float) -> float:

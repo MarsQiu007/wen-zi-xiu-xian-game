@@ -1,1 +1,8 @@
 .godot/
+.mcp/
+node_modules/
+patch_ui_root.py
+package.json
+package-lock.json
+*.uid
+.sisyphus/evidence/

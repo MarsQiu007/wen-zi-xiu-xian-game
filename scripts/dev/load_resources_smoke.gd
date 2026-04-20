@@ -27,6 +27,11 @@ const SAMPLE_PATHS := {
 	"event_templates": [
 		"res://resources/world/samples/mvp_event_harvest_festival.tres",
 		"res://resources/world/samples/mvp_event_sect_recruitment.tres",
+		"res://resources/world/samples/mvp_event_orthodox_investigation.tres",
+		"res://resources/world/samples/mvp_event_orthodox_suppression.tres",
+		"res://resources/world/samples/mvp_event_market_disturbance.tres",
+		"res://resources/world/samples/mvp_event_shrine_petition.tres",
+		"res://resources/world/samples/mvp_event_night_watch_patrol.tres",
 	],
 	"doctrines": [
 		"res://resources/world/samples/mvp_doctrine_orthodox_doctrine.tres",

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_event_template_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_orthodox_suppression"
+display_name = "镇压异端坛场"
+summary = "修仙正统在证据确凿后对神教据点或涉神者实施镇压。"
+tags = PackedStringArray("orthodox", "suppression", "faith_conflict", "shared")
+human_visible = true
+deity_visible = true
+event_type = &"suppression"
+region_scope_tags = PackedStringArray("city", "secret_realm", "village")
+required_actor_tags = PackedStringArray("candidate", "visionary")
+required_faction_tags = PackedStringArray("cultivation_sect")
+trigger_tags = PackedStringArray("faith_crackdown", "sect_edict")
+result_tags = PackedStringArray("crackdown", "cost", "public_order")
+severity = 3
+key_participant_roles = PackedStringArray("orthodox_enforcer", "cult_suspect", "witness")
+pause_behavior = &"auto"
+summary_template = "{faction} 在 {region} 发起镇压，逼迫神道活动转入地下。"

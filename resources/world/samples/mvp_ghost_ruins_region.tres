@@ -12,6 +12,7 @@ human_visible = true
 deity_visible = true
 region_type = &"ghost_zone"
 parent_region_id = &"mvp_small_city_region"
+adjacent_region_ids = PackedStringArray("mvp_small_city_region")
 controlling_faction_id = &"mvp_small_city"
 active_population_hint = 12
 resource_tags = PackedStringArray("grave_dust", "yin_wood", "remnant_relic")

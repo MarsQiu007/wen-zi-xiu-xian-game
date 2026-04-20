@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://char123xxx"]
+[gd_scene format=3 uid="uid://char123xxx"]
 
 [ext_resource type="Script" path="res://scripts/ui/char_creation_screen.gd" id="1_char"]
 

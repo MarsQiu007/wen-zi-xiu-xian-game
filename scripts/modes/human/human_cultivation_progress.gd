@@ -3,9 +3,10 @@ class_name HumanCultivationProgress
 
 const MORTAL_REALM := "mortal"
 const QI_TRAINING_REALM := "qi_training"
-const MORTAL_PROGRESS_TARGET := 2
-const QI_BREAKTHROUGH_TARGET := 2
+const MORTAL_PROGRESS_TARGET := 3
+const QI_BREAKTHROUGH_TARGET := 3
 const QI_BREAKTHROUGH_CONTACT_REQUIREMENT := 6
+const UNLOCKED_GUIDANCE_PROGRESS_BONUS := 2
 const EARLY_QI_LIFESPAN_BONUS := 20
 const BREAKTHROUGH_FAILURE_LIFESPAN_LOSS := 3
 const BREAKTHROUGH_FAILURE_WEAKNESS_DAYS := 2
@@ -60,6 +61,8 @@ static func advance_day(runtime: Dictionary, _simulated_day: int) -> Dictionary:
 	if weakness_days > 0:
 		state["weakness_days"] = weakness_days - 1
 		progress_gain = 0
+	elif _should_apply_unlock_guidance_bonus(state, gate):
+		progress_gain += UNLOCKED_GUIDANCE_PROGRESS_BONUS
 
 	var event_type := "practice_progress"
 	var consequence := ""
@@ -94,6 +97,12 @@ static func advance_day(runtime: Dictionary, _simulated_day: int) -> Dictionary:
 		"gate": gate.duplicate(true),
 		"consequence": consequence,
 	}
+
+
+static func _should_apply_unlock_guidance_bonus(state: Dictionary, gate: Dictionary) -> bool:
+	return str(state.get("realm", MORTAL_REALM)) == MORTAL_REALM \
+		and int(state.get("practice_days", 0)) == 1 \
+		and bool(gate.get("opportunity_unlocked", false))
 
 
 static func _resolve_breakthrough(state: Dictionary, gate: Dictionary) -> Dictionary:
@@ -159,6 +168,10 @@ static func _normalize_gate(raw_gate: Variant) -> Dictionary:
 		"has_active_contact": bool(source.get("has_active_contact", false)),
 		"opportunity_unlocked": bool(source.get("opportunity_unlocked", false)),
 		"last_contact_action": str(source.get("last_contact_action", "")),
+		"faith_contact_score": int(source.get("faith_contact_score", 0)),
+		"orthodox_suspicion": int(source.get("orthodox_suspicion", 0)),
+		"last_faith_action": str(source.get("last_faith_action", "")),
+		"faith_marked": bool(source.get("faith_marked", false)),
 	}
 
 

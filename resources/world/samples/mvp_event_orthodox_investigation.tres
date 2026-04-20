@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_event_template_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_orthodox_investigation"
+display_name = "正统巡察"
+summary = "修仙正统在发现神迹、神眷者或偏祠活动后展开调查。"
+tags = PackedStringArray("orthodox", "investigation", "faith_conflict", "shared")
+human_visible = true
+deity_visible = true
+event_type = &"investigation"
+region_scope_tags = PackedStringArray("village", "city", "secret_realm")
+required_actor_tags = PackedStringArray("candidate", "visionary")
+required_faction_tags = PackedStringArray("cultivation_sect")
+trigger_tags = PackedStringArray("faith_trace", "heterodox_rumor")
+result_tags = PackedStringArray("warning", "watchlist", "hostility")
+severity = 2
+key_participant_roles = PackedStringArray("orthodox_patrol", "suspect", "observer")
+pause_behavior = &"auto"
+summary_template = "{faction} 在 {region} 巡察异端香火，把涉神之人列入观察。"

@@ -12,6 +12,7 @@ human_visible = true
 deity_visible = true
 region_type = &"village"
 parent_region_id = &""
+adjacent_region_ids = PackedStringArray("mvp_small_city_region", "mvp_sect_mountain_region")
 controlling_faction_id = &"mvp_village_settlement"
 active_population_hint = 1200
 resource_tags = PackedStringArray("grain", "timber", "fresh_water")

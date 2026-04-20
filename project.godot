@@ -15,8 +15,6 @@ run/main_scene="res://scenes/main/game_root.tscn"
 config/features=PackedStringArray("4.6")
 
 [autoload]
-
-McpBridge="*res://mcp_bridge.gd"
 TimeService="*res://autoload/time_service.gd"
 RunState="*res://autoload/run_state.gd"
 SaveService="*res://autoload/save_service.gd"

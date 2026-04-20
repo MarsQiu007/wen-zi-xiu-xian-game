@@ -12,6 +12,7 @@ human_visible = true
 deity_visible = true
 region_type = &"forbidden_zone"
 parent_region_id = &"mvp_sect_mountain_region"
+adjacent_region_ids = PackedStringArray("mvp_sect_mountain_region")
 controlling_faction_id = &""
 active_population_hint = 0
 resource_tags = PackedStringArray("ancient_relic", "forbidden_metal")

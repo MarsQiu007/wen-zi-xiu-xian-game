@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_event_template_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_market_disturbance"
+display_name = "集市风波"
+summary = "围绕物资短缺、口角冲突与临时管制产生的日常扰动事件。"
+tags = PackedStringArray("market", "disturbance", "shared")
+human_visible = true
+deity_visible = true
+event_type = &"disturbance"
+region_scope_tags = PackedStringArray("village", "city", "sect_hub")
+required_actor_tags = PackedStringArray("villager", "candidate")
+required_faction_tags = PackedStringArray("settlement", "cultivation_sect")
+trigger_tags = PackedStringArray("supply_shortage", "market_dispute")
+result_tags = PackedStringArray("order_shift", "rumor_spread")
+severity = 1
+key_participant_roles = PackedStringArray("merchant", "patrol", "witness")
+pause_behavior = &"auto"
+summary_template = "{region} 的集市出现风波，迫使 {faction} 临时介入维持秩序。"

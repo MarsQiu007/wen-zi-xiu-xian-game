@@ -23,6 +23,7 @@ func _initialize() -> void:
 	var failed := false
 	var region_counts := {}
 	var region_ids := {}
+	var region_adjacency := {}
 
 	for region in catalog.regions:
 		if region == null:
@@ -32,13 +33,16 @@ func _initialize() -> void:
 		var region_id := str(region.get("id"))
 		var region_type := str(region.get("region_type"))
 		var controlling_faction_id := str(region.get("controlling_faction_id"))
+		var adjacent_region_ids := region.get("adjacent_region_ids") as PackedStringArray
 		region_ids[region_id] = true
+		region_adjacency[region_id] = adjacent_region_ids
 		region_counts[region_type] = int(region_counts.get(region_type, 0)) + 1
-		print("REGION|id=%s|type=%s|control=%s|parent=%s|sites=%s|danger=%s" % [
+		print("REGION|id=%s|type=%s|control=%s|parent=%s|adjacent=%s|sites=%s|danger=%s" % [
 			_sanitize(region_id),
 			_sanitize(region_type),
 			_sanitize(controlling_faction_id),
 			_sanitize(str(region.get("parent_region_id"))),
+			_sanitize(",".join(adjacent_region_ids)),
 			_sanitize(",".join(region.get("key_site_tags") as PackedStringArray)),
 			_sanitize(",".join(region.get("danger_tags") as PackedStringArray)),
 		])
@@ -49,6 +53,19 @@ func _initialize() -> void:
 		if count < 1:
 			failed = true
 			print("[error] 缺少必需区域类型: %s" % REQUIRED_REGION_TYPES[region_type])
+
+	for region_id in region_adjacency.keys():
+		var adjacent_ids: PackedStringArray = region_adjacency[region_id]
+		for adjacent_id in adjacent_ids:
+			var target_region_id := str(adjacent_id)
+			if target_region_id.is_empty() or not region_ids.has(target_region_id):
+				failed = true
+				print("[error] 区域邻接引用无效: %s -> %s" % [region_id, target_region_id])
+				continue
+			var target_adjacent: PackedStringArray = region_adjacency.get(target_region_id, PackedStringArray())
+			if not target_adjacent.has(region_id):
+				failed = true
+				print("[error] 区域邻接非双向: %s -> %s" % [region_id, target_region_id])
 
 	for faction in catalog.factions:
 		if faction == null:

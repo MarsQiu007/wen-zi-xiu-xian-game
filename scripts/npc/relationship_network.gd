@@ -1,7 +1,7 @@
 extends RefCounted
 class_name RelationshipNetwork
 
-const RelationshipEdge = preload("res://scripts/data/relationship_edge.gd")
+const RelationshipEdgeScript = preload("res://scripts/data/relationship_edge.gd")
 
 const RELATION_TYPES: Array[StringName] = [
 	&"family",
@@ -41,7 +41,7 @@ func get_edge(source_id: StringName, target_id: StringName) -> RelationshipEdge:
 	var key := _edge_key(source_id, target_id)
 	if _edges.has(key):
 		return _edges[key]
-	return RelationshipEdge.new()
+	return RelationshipEdgeScript.new()
 
 
 func get_edges_for(source_id: StringName) -> Array[RelationshipEdge]:

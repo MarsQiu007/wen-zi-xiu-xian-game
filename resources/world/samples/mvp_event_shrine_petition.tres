@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_event_template_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_shrine_petition"
+display_name = "祠前请愿"
+summary = "家族与乡民在祠前发起请愿，推动势力重新分配援助与执法重心。"
+tags = PackedStringArray("settlement", "petition", "shared")
+human_visible = true
+deity_visible = true
+event_type = &"selection"
+region_scope_tags = PackedStringArray("village", "city")
+required_actor_tags = PackedStringArray("household", "candidate")
+required_faction_tags = PackedStringArray("settlement", "cultivation_sect")
+trigger_tags = PackedStringArray("petition_wave", "aid_request")
+result_tags = PackedStringArray("resource_shift", "alignment_change")
+severity = 2
+key_participant_roles = PackedStringArray("petitioner", "mediator", "observer")
+pause_behavior = &"auto"
+summary_template = "{family} 在 {region} 发起请愿，促使 {faction} 调整应对策略。"

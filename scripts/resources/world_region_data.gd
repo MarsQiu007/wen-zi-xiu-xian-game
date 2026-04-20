@@ -9,6 +9,7 @@ class_name WorldRegionData
 @export var deity_visible: bool = true
 @export var region_type: StringName = &"region"
 @export var parent_region_id: StringName = &""
+@export var adjacent_region_ids: PackedStringArray = PackedStringArray()
 @export var controlling_faction_id: StringName = &""
 @export var active_population_hint: int = 0
 @export var resource_tags: PackedStringArray = PackedStringArray()

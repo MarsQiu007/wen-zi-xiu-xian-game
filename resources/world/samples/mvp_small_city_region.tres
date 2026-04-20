@@ -12,6 +12,7 @@ human_visible = true
 deity_visible = true
 region_type = &"city"
 parent_region_id = &""
+adjacent_region_ids = PackedStringArray("mvp_village_region", "mvp_ghost_ruins_region", "mvp_secret_realm_gate_region")
 controlling_faction_id = &"mvp_small_city"
 active_population_hint = 8600
 resource_tags = PackedStringArray("market", "administration", "craft")

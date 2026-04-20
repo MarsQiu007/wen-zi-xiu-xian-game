@@ -13,11 +13,21 @@ const OPENING_PRESETS := {
 		"age_years": 14,
 		"life_stage": "youth",
 		"strategy": "learning",
+		"default_action_plan": [
+			"study_classics",
+			"support_family",
+			"study_classics",
+			"seek_master",
+			"visit_sect",
+			"ask_for_guidance",
+			"study_classics",
+			"support_family",
+		],
 		"branch_weights": {
 			"survival": 0,
 			"family": 1,
 			"learning": 6,
-			"cultivation": 0,
+			"cultivation": 2,
 		},
 		"pressures": {
 			"survival": 3,
@@ -91,6 +101,8 @@ static func build_opening(catalog: Resource, opening_type: String, options: Dict
 		branch_weights["cultivation"] = int(branch_weights.get("cultivation", 0)) + 8
 		branch_weights["learning"] = maxi(0, int(branch_weights.get("learning", 0)) - 2)
 	var action_plan := _normalize_action_plan(options.get("action_plan", []))
+	if action_plan.is_empty() and not options.has("strategy") and not options.has("action_plan"):
+		action_plan = _normalize_action_plan(preset.get("default_action_plan", []))
 	var base_player := {
 		"id": str(options.get("player_id", str(_resource_get(base_character, "id", "human_player")))),
 		"display_name": str(options.get("player_name", str(_resource_get(base_character, "display_name", "凡俗主角")))),
@@ -234,6 +246,10 @@ static func _normalize_cultivation_gate(raw_gate: Variant) -> Dictionary:
 		"has_active_contact": bool(source.get("has_active_contact", false)),
 		"opportunity_unlocked": bool(source.get("opportunity_unlocked", false)),
 		"last_contact_action": str(source.get("last_contact_action", "")),
+		"faith_contact_score": int(source.get("faith_contact_score", 0)),
+		"orthodox_suspicion": int(source.get("orthodox_suspicion", 0)),
+		"last_faith_action": str(source.get("last_faith_action", "")),
+		"faith_marked": bool(source.get("faith_marked", false)),
 	}
 
 

@@ -11,7 +11,7 @@ const ACTION_DEFS := {
 		"label": "外出讨生活",
 		"branch": "survival",
 		"pressure_deltas": {
-			"survival": -2,
+			"survival": -3,
 			"family": 0,
 			"learning": 1,
 			"cultivation": 1,
@@ -79,6 +79,36 @@ const ACTION_DEFS := {
 		"active_contact": true,
 		"contact_gain": 2,
 	},
+	"visit_shrine": {
+		"label": "暗访偏祠问神",
+		"branch": "cultivation",
+		"pressure_deltas": {
+			"survival": 1,
+			"family": 2,
+			"learning": 0,
+			"cultivation": -1,
+		},
+		"active_contact": false,
+		"contact_gain": 0,
+		"faith_contact": true,
+		"faith_contact_gain": 2,
+		"orthodox_suspicion_gain": 2,
+	},
+	"seek_oracle": {
+		"label": "追索神迹传闻",
+		"branch": "cultivation",
+		"pressure_deltas": {
+			"survival": 1,
+			"family": 1,
+			"learning": 0,
+			"cultivation": -1,
+		},
+		"active_contact": false,
+		"contact_gain": 0,
+		"faith_contact": true,
+		"faith_contact_gain": 2,
+		"orthodox_suspicion_gain": 1,
+	},
 }
 
 const DEFAULT_ACTION_BY_BRANCH := {
@@ -89,6 +119,8 @@ const DEFAULT_ACTION_BY_BRANCH := {
 }
 
 const ACTIVE_CULTIVATION_ROTATION := ["seek_master", "visit_sect", "ask_for_guidance"]
+const ACTIVE_FAITH_ROTATION := ["visit_shrine", "seek_oracle", "visit_shrine"]
+const YOUTH_DEFAULT_CULTIVATION_PLAN := ["seek_master", "visit_sect", "ask_for_guidance"]
 
 
 static func advance_day(runtime: Dictionary, simulated_day: int) -> Dictionary:
@@ -133,6 +165,8 @@ static func advance_day(runtime: Dictionary, simulated_day: int) -> Dictionary:
 		"label": str(action_def.get("label", action_id)),
 		"branch": str(action_def.get("branch", dominant_branch)),
 		"contact_gain": int(gate_resolution.get("contact_gain", 0)),
+		"faith_contact_gain": int(gate_resolution.get("faith_contact_gain", 0)),
+		"orthodox_suspicion_gain": int(gate_resolution.get("orthodox_suspicion_gain", 0)),
 		"dominant_branch": dominant_branch,
 		"cultivation_realm": str(cultivation_state.get("realm", "mortal")),
 		"cultivation_stage_label": str(cultivation_state.get("realm_label", "凡体")),
@@ -299,12 +333,22 @@ static func _pick_action_id(runtime: Dictionary, simulated_day: int) -> String:
 	var plan_index := simulated_day - 1
 	if plan_index >= 0 and plan_index < action_plan.size():
 		return str(action_plan[plan_index])
+	var opening_type := str(runtime.get("opening_type", ""))
+	if opening_type == "youth":
+		var gate: Dictionary = runtime.get("cultivation_gate", {})
+		var contact_score := int(gate.get("contact_score", 0))
+		var opportunity_unlocked := bool(gate.get("opportunity_unlocked", false))
+		var cultivation_pressure := int(runtime.get("pressures", {}).get("cultivation", 0))
+		if not opportunity_unlocked and contact_score > 0 and cultivation_pressure >= 8:
+			return str(YOUTH_DEFAULT_CULTIVATION_PLAN[(contact_score - 1) % YOUTH_DEFAULT_CULTIVATION_PLAN.size()])
 	var strategy := str(runtime.get("strategy", ""))
 	match strategy:
 		"survival", "family", "learning", "cultivation":
 			return str(DEFAULT_ACTION_BY_BRANCH.get(strategy, "work_for_food"))
 		"active_cultivation":
 			return str(ACTIVE_CULTIVATION_ROTATION[plan_index % ACTIVE_CULTIVATION_ROTATION.size()])
+		"faith_seek":
+			return str(ACTIVE_FAITH_ROTATION[plan_index % ACTIVE_FAITH_ROTATION.size()])
 		"passive":
 			return str(DEFAULT_ACTION_BY_BRANCH.get(_select_passive_branch(runtime), "work_for_food"))
 		_:

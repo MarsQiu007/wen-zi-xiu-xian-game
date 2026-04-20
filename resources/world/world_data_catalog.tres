@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=21 format=3]
+[gd_resource type="Resource" load_steps=26 format=3]
 
 [ext_resource type="Script" path="res://scripts/resources/world_data_catalog.gd" id="1"]
 [ext_resource type="Resource" path="res://resources/world/samples/mvp_character_village_heir.tres" id="2"]
@@ -21,6 +21,11 @@
 [ext_resource type="Resource" path="res://resources/world/samples/mvp_ghost_ruins_region.tres" id="19"]
 [ext_resource type="Resource" path="res://resources/world/samples/mvp_secret_realm_gate_region.tres" id="20"]
 [ext_resource type="Resource" path="res://resources/world/samples/mvp_deadfall_abyss_region.tres" id="21"]
+[ext_resource type="Resource" path="res://resources/world/samples/mvp_event_orthodox_investigation.tres" id="22"]
+[ext_resource type="Resource" path="res://resources/world/samples/mvp_event_orthodox_suppression.tres" id="23"]
+[ext_resource type="Resource" path="res://resources/world/samples/mvp_event_market_disturbance.tres" id="24"]
+[ext_resource type="Resource" path="res://resources/world/samples/mvp_event_shrine_petition.tres" id="25"]
+[ext_resource type="Resource" path="res://resources/world/samples/mvp_event_night_watch_patrol.tres" id="26"]
 
 [resource]
 script = ExtResource("1")
@@ -28,6 +33,6 @@ characters = [ExtResource("2"), ExtResource("3")]
 families = [ExtResource("4"), ExtResource("5")]
 factions = [ExtResource("6"), ExtResource("7"), ExtResource("8"), ExtResource("9")]
 regions = [ExtResource("10"), ExtResource("11"), ExtResource("12"), ExtResource("18"), ExtResource("19"), ExtResource("20"), ExtResource("21")]
-event_templates = [ExtResource("13"), ExtResource("14")]
+event_templates = [ExtResource("13"), ExtResource("14"), ExtResource("22"), ExtResource("23"), ExtResource("24"), ExtResource("25"), ExtResource("26")]
 doctrines = [ExtResource("15"), ExtResource("16")]
 deities = [ExtResource("17")]

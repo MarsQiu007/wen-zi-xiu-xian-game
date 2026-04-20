@@ -8,6 +8,8 @@ const TASK_TASK8 := "task8"
 const TASK_TASK9 := "task9"
 const TASK_TASK10 := "task10"
 const TASK_TASK11 := "task11"
+const TASK_TASK12 := "task12"
+const TASK_EVENT_DIVERSITY := "event_diversity"
 
 const MODE_HUMAN := "human"
 const MODE_DEITY := "deity"
@@ -18,11 +20,13 @@ const SIMULATION_RUNNER_SCENE_PATH := "res://scenes/sim/simulation_runner.tscn"
 const TIME_SERVICE_SCRIPT := preload("res://autoload/time_service.gd")
 const RUN_STATE_SCRIPT := preload("res://autoload/run_state.gd")
 const EVENT_LOG_SCRIPT := preload("res://autoload/event_log.gd")
+const LOCATION_SERVICE_SCRIPT := preload("res://autoload/location_service.gd")
 const TASK7_SMOKE_SCRIPT := preload("res://scripts/dev/task7_smoke.gd")
 const TASK8_SMOKE_SCRIPT := preload("res://scripts/dev/task8_smoke.gd")
 const TASK9_SMOKE_SCRIPT := preload("res://scripts/dev/task9_smoke.gd")
 const TASK10_SMOKE_SCRIPT := preload("res://scripts/dev/task10_smoke.gd")
 const TASK11_SMOKE_SCRIPT := preload("res://scripts/dev/task11_smoke.gd")
+const TASK12_SMOKE_SCRIPT := preload("res://scripts/dev/task12_smoke.gd")
 
 const SAMPLE_PATHS := {
 	"characters": [
@@ -51,6 +55,9 @@ const SAMPLE_PATHS := {
 	"event_templates": [
 		"res://resources/world/samples/mvp_event_harvest_festival.tres",
 		"res://resources/world/samples/mvp_event_sect_recruitment.tres",
+		"res://resources/world/samples/mvp_event_market_disturbance.tres",
+		"res://resources/world/samples/mvp_event_shrine_petition.tres",
+		"res://resources/world/samples/mvp_event_night_watch_patrol.tres",
 	],
 	"doctrines": [
 		"res://resources/world/samples/mvp_doctrine_orthodox_doctrine.tres",
@@ -89,8 +96,12 @@ func _initialize() -> void:
 			_run_task10_task(scenario, seed, days)
 		TASK_TASK11:
 			_run_task11_task(scenario, seed, days)
+		TASK_TASK12:
+			_run_task12_task(scenario, seed, days)
+		TASK_EVENT_DIVERSITY:
+			_run_event_diversity_task(seed, days)
 		_:
-			print("错误：未知任务 %s，可选值为 boot/resources/day_tick/task7/task8/task9/task10/task11" % _sanitize(task))
+			print("错误：未知任务 %s，可选值为 boot/resources/day_tick/task7/task8/task9/task10/task11/task12/event_diversity" % _sanitize(task))
 			quit(1)
 
 
@@ -189,10 +200,12 @@ func _run_day_tick_task(mode: String, seed: int, days: int, stop_on_pause: bool,
 	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
 	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
 	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
 
 	var time_service: Node = time_service_info.get("node")
 	var run_state: Node = run_state_info.get("node")
 	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
 
 	run_state.mode = StringName(validated_mode)
 	if run_state.has_method("set_mode"):
@@ -206,7 +219,7 @@ func _run_day_tick_task(mode: String, seed: int, days: int, stop_on_pause: bool,
 
 	var runner: Node = runner_scene.instantiate()
 	root.add_child(runner)
-	runner.setup_services(time_service, event_log, run_state)
+	runner.setup_services(time_service, event_log, run_state, location_service)
 	runner.bootstrap(seed)
 
 	var summary: Dictionary = runner.advance_days(days, stop_on_pause, auto_resolve_pause)
@@ -238,6 +251,8 @@ func _run_day_tick_task(mode: String, seed: int, days: int, stop_on_pause: bool,
 	runner.free()
 	if bool(event_log_info.get("created", false)):
 		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
 	if bool(run_state_info.get("created", false)):
 		run_state.free()
 	if bool(time_service_info.get("created", false)):
@@ -249,9 +264,11 @@ func _run_task7_task(scenario: String, seed: int, days: int) -> void:
 	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
 	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
 	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
 	var time_service: Node = time_service_info.get("node")
 	var run_state: Node = run_state_info.get("node")
 	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
 	var task7_smoke: RefCounted = TASK7_SMOKE_SCRIPT.new()
 	var result: Dictionary = task7_smoke.run(root, time_service, run_state, event_log, scenario, seed, days)
 	print("SUMMARY|task=task7|scenario=%s|failed=%s|message=%s" % [
@@ -261,6 +278,8 @@ func _run_task7_task(scenario: String, seed: int, days: int) -> void:
 	])
 	if bool(event_log_info.get("created", false)):
 		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
 	if bool(run_state_info.get("created", false)):
 		run_state.free()
 	if bool(time_service_info.get("created", false)):
@@ -272,9 +291,11 @@ func _run_task8_task(scenario: String, seed: int, days: int) -> void:
 	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
 	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
 	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
 	var time_service: Node = time_service_info.get("node")
 	var run_state: Node = run_state_info.get("node")
 	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
 	var task8_smoke: RefCounted = TASK8_SMOKE_SCRIPT.new()
 	var result: Dictionary = task8_smoke.run(root, time_service, run_state, event_log, scenario, seed, days)
 	print("SUMMARY|task=task8|scenario=%s|failed=%s|message=%s" % [
@@ -284,6 +305,8 @@ func _run_task8_task(scenario: String, seed: int, days: int) -> void:
 	])
 	if bool(event_log_info.get("created", false)):
 		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
 	if bool(run_state_info.get("created", false)):
 		run_state.free()
 	if bool(time_service_info.get("created", false)):
@@ -295,9 +318,11 @@ func _run_task9_task(scenario: String, seed: int, days: int) -> void:
 	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
 	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
 	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
 	var time_service: Node = time_service_info.get("node")
 	var run_state: Node = run_state_info.get("node")
 	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
 	var task9_smoke: RefCounted = TASK9_SMOKE_SCRIPT.new()
 	var result: Dictionary = task9_smoke.run(root, time_service, run_state, event_log, scenario, seed, days)
 	print("SUMMARY|task=task9|scenario=%s|failed=%s|message=%s" % [
@@ -307,6 +332,8 @@ func _run_task9_task(scenario: String, seed: int, days: int) -> void:
 	])
 	if bool(event_log_info.get("created", false)):
 		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
 	if bool(run_state_info.get("created", false)):
 		run_state.free()
 	if bool(time_service_info.get("created", false)):
@@ -318,9 +345,11 @@ func _run_task10_task(scenario: String, seed: int, days: int) -> void:
 	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
 	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
 	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
 	var time_service: Node = time_service_info.get("node")
 	var run_state: Node = run_state_info.get("node")
 	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
 	var task10_smoke: RefCounted = TASK10_SMOKE_SCRIPT.new()
 	var result: Dictionary = task10_smoke.run(root, time_service, run_state, event_log, scenario, seed, days)
 	print("SUMMARY|task=task10|scenario=%s|failed=%s|message=%s" % [
@@ -330,6 +359,8 @@ func _run_task10_task(scenario: String, seed: int, days: int) -> void:
 	])
 	if bool(event_log_info.get("created", false)):
 		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
 	if bool(run_state_info.get("created", false)):
 		run_state.free()
 	if bool(time_service_info.get("created", false)):
@@ -341,9 +372,11 @@ func _run_task11_task(scenario: String, seed: int, days: int) -> void:
 	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
 	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
 	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
 	var time_service: Node = time_service_info.get("node")
 	var run_state: Node = run_state_info.get("node")
 	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
 	var task11_smoke: RefCounted = TASK11_SMOKE_SCRIPT.new()
 	var result: Dictionary = task11_smoke.run(root, time_service, run_state, event_log, scenario, seed, days)
 	print("SUMMARY|task=task11|scenario=%s|failed=%s|message=%s" % [
@@ -353,11 +386,141 @@ func _run_task11_task(scenario: String, seed: int, days: int) -> void:
 	])
 	if bool(event_log_info.get("created", false)):
 		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
 	if bool(run_state_info.get("created", false)):
 		run_state.free()
 	if bool(time_service_info.get("created", false)):
 		time_service.free()
 	quit(1 if bool(result.get("failed", true)) else 0)
+
+
+func _run_task12_task(scenario: String, seed: int, days: int) -> void:
+	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
+	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
+	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
+	var time_service: Node = time_service_info.get("node")
+	var run_state: Node = run_state_info.get("node")
+	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
+	var task12_smoke: RefCounted = TASK12_SMOKE_SCRIPT.new()
+	var result: Dictionary = task12_smoke.run(root, time_service, run_state, event_log, location_service, scenario, seed, days)
+	print("SUMMARY|task=task12|scenario=%s|failed=%s|message=%s" % [
+		_sanitize(scenario),
+		str(result.get("failed", true)),
+		_sanitize(str(result.get("message", ""))),
+	])
+	if bool(event_log_info.get("created", false)):
+		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
+	if bool(run_state_info.get("created", false)):
+		run_state.free()
+	if bool(time_service_info.get("created", false)):
+		time_service.free()
+	quit(1 if bool(result.get("failed", true)) else 0)
+
+
+func _run_event_diversity_task(seed: int, days: int) -> void:
+	var target_days := maxi(200, days)
+	print("SMOKE_START|task=event_diversity|mode=human|seed=%d|days=%d" % [seed, target_days])
+	var time_service_info := _ensure_service("TimeService", TIME_SERVICE_SCRIPT)
+	var run_state_info := _ensure_service("RunState", RUN_STATE_SCRIPT)
+	var event_log_info := _ensure_service("EventLog", EVENT_LOG_SCRIPT)
+	var location_service_info := _ensure_service("LocationService", LOCATION_SERVICE_SCRIPT)
+
+	var time_service: Node = time_service_info.get("node")
+	var run_state: Node = run_state_info.get("node")
+	var event_log: Node = event_log_info.get("node")
+	var location_service: Node = location_service_info.get("node")
+
+	run_state.set_mode(&"human")
+	var runner_scene: PackedScene = load(SIMULATION_RUNNER_SCENE_PATH)
+	if runner_scene == null:
+		print("[error] 无法加载模拟场景: %s" % SIMULATION_RUNNER_SCENE_PATH)
+		quit(1)
+		return
+
+	var runner: Node = runner_scene.instantiate()
+	root.add_child(runner)
+	runner.setup_services(time_service, event_log, run_state, location_service)
+	runner.bootstrap(seed)
+	runner.advance_days(target_days, false, true)
+
+	var template_counts: Dictionary = {}
+	var regular_total := 0
+	var max_template_id := ""
+	var max_count := 0
+	for record in runner.get_event_template_history():
+		var template_id := str(record.get("template_id", ""))
+		if template_id.is_empty():
+			continue
+		if template_id == "mvp_orthodox_investigation" or template_id == "mvp_orthodox_suppression":
+			continue
+		template_counts[template_id] = int(template_counts.get(template_id, 0)) + 1
+		regular_total += 1
+
+	for template_id in template_counts.keys():
+		var count := int(template_counts.get(template_id, 0))
+		if count > max_count:
+			max_count = count
+			max_template_id = str(template_id)
+
+	var max_ratio := float(max_count) / float(regular_total) if regular_total > 0 else 0.0
+	var freq_ok := true
+	var history: Array = runner.get_event_template_history()
+	for record in history:
+		var template_id := str(record.get("template_id", ""))
+		if template_id.is_empty() or template_id == "mvp_orthodox_investigation" or template_id == "mvp_orthodox_suppression":
+			continue
+		var stage := str(record.get("feedback_stage", ""))
+		var day := int(record.get("day", 0))
+		var hits := 0
+		for follow in history:
+			if str(follow.get("template_id", "")) != template_id:
+				continue
+			if str(follow.get("feedback_stage", "")) != stage:
+				continue
+			var follow_day := int(follow.get("day", 0))
+			if follow_day < day:
+				continue
+			if follow_day - day >= 10:
+				continue
+			hits += 1
+		if hits > 2:
+			freq_ok = false
+			break
+
+	var festival_count := int(template_counts.get("mvp_harvest_festival", 0))
+	var festival_ratio := float(festival_count) / float(regular_total) if regular_total > 0 else 0.0
+	var dominant_ok := max_ratio <= 0.35
+	var festival_ok := festival_ratio <= 0.35
+
+	print("CASE|scenario=event_diversity|regular_total=%d|max_template=%s|max_count=%d|max_ratio=%.4f|festival_count=%d|festival_ratio=%.4f" % [
+		regular_total,
+		_sanitize(max_template_id),
+		max_count,
+		max_ratio,
+		festival_count,
+		festival_ratio,
+	])
+	print("ASSERT|scenario=event_diversity|dominant_ok=%s|freq_ok=%s|festival_ok=%s" % [
+		str(dominant_ok),
+		str(freq_ok),
+		str(festival_ok),
+	])
+
+	runner.free()
+	if bool(event_log_info.get("created", false)):
+		event_log.free()
+	if bool(location_service_info.get("created", false)):
+		location_service.free()
+	if bool(run_state_info.get("created", false)):
+		run_state.free()
+	if bool(time_service_info.get("created", false)):
+		time_service.free()
+	quit(1 if not (dominant_ok and freq_ok and festival_ok) else 0)
 
 
 func _parse_args(raw_args: PackedStringArray) -> Dictionary:

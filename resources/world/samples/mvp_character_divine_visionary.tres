@@ -6,7 +6,7 @@
 script = ExtResource("1")
 id = &"mvp_divine_visionary"
 display_name = "沈清徽"
-summary = "对神谕高度敏感的神眷者候选。"
+summary = "清河沈氏的异类，常在夜半聆听虚空之声，其信性在家族内部备受争议。"
 tags = PackedStringArray("deity_mode", "visionary", "ritual_focused")
 human_visible = true
 deity_visible = true

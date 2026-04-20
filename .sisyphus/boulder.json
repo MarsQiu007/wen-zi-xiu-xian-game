@@ -1,50 +1,87 @@
 {
-  "active_plan": "/home/mars/codes/games/wen-zi-xiu-xian-game/.sisyphus/plans/文字修仙沙盒游戏首版-mvp-规划.md",
-  "started_at": "2026-04-16T23:29:57.191Z",
+  "active_plan": "/home/mars/codes/games/wen-zi-xiu-xian-game/.sisyphus/plans/凡人玩法与UI全面升级.md",
+  "started_at": "2026-04-19T11:24:20.402Z",
   "session_ids": [
-    "ses_26e7768c2ffe8GVlTsCGQ8UBun"
+    "ses_25eff45e3ffeXfIV4xTEOAQ1SD",
+    "ses_25a74dfedffe1aXHP56MiS1ZWx",
+    "ses_25a748dc5ffefMwoqo2lHq6K1a",
+    "ses_25a742cfaffeYya9Q11kFgXS7L",
+    "ses_25a73e73cffemHsJ42lSGMG5Rc",
+    "ses_25a5aa664ffeOq01DvwyoxL8di",
+    "ses_25a593c2bffeq5XFE6SUfPkGJQ",
+    "ses_25a58f7e5ffegQEqem3OgMTyKl",
+    "ses_25a587a21ffe7yXRqymKaMR9XU",
+    "ses_259842f89ffeGkCYhuHxj538fw",
+    "ses_259840e02ffejSmI7MmCoNpJKW",
+    "ses_25983e2c1ffeYdHRzb08323xHn",
+    "ses_25983a811ffe4xnt0KE004Lr9l"
   ],
   "session_origins": {
-    "ses_26e7768c2ffe8GVlTsCGQ8UBun": "direct"
+    "ses_25eff45e3ffeXfIV4xTEOAQ1SD": "direct",
+    "ses_25a74dfedffe1aXHP56MiS1ZWx": "appended",
+    "ses_25a748dc5ffefMwoqo2lHq6K1a": "appended",
+    "ses_25a742cfaffeYya9Q11kFgXS7L": "appended",
+    "ses_25a73e73cffemHsJ42lSGMG5Rc": "appended",
+    "ses_25a5aa664ffeOq01DvwyoxL8di": "appended",
+    "ses_25a593c2bffeq5XFE6SUfPkGJQ": "appended",
+    "ses_25a58f7e5ffegQEqem3OgMTyKl": "appended",
+    "ses_25a587a21ffe7yXRqymKaMR9XU": "appended",
+    "ses_259842f89ffeGkCYhuHxj538fw": "appended",
+    "ses_259840e02ffejSmI7MmCoNpJKW": "appended",
+    "ses_25983e2c1ffeYdHRzb08323xHn": "appended",
+    "ses_25983a811ffe4xnt0KE004Lr9l": "appended"
   },
-  "plan_name": "文字修仙沙盒游戏首版-mvp-规划",
+  "plan_name": "凡人玩法与UI全面升级",
   "agent": "atlas",
   "task_sessions": {
     "todo:1": {
       "task_key": "todo:1",
-      "task_label": "1",
-      "task_title": "搭建 Godot 项目骨架与 Autoload 框架",
-      "session_id": "ses_2675d8d20ffeWMcWABA2a5VIaq",
+      "task_label": "T1",
+      "task_title": "RunState + GameRoot 流程状态机重构",
+      "session_id": "ses_25a7cfccaffebvpMN730NDwTF0",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-16T23:34:35.308Z"
+      "category": "deep",
+      "background_task_id": "bg_2dee1bcf",
+      "updated_at": "2026-04-19T11:25:00.000Z"
     },
     "todo:2": {
       "task_key": "todo:2",
-      "task_label": "2",
-      "task_title": "设计世界/角色/势力 Resource 数据层",
-      "session_id": "ses_26758a120ffe05akLJJvN7AWWL",
+      "task_label": "T2",
+      "task_title": "TimeService 小时制核心 + 速度档位",
+      "session_id": "ses_25a7cdf13ffeXw0qDnk7A42ktV",
       "agent": "Sisyphus-Junior",
-      "category": "quick",
-      "updated_at": "2026-04-16T23:41:15.142Z"
+      "category": "deep",
+      "background_task_id": "bg_80fd63c9",
+      "updated_at": "2026-04-19T11:25:00.000Z"
     },
     "todo:3": {
       "task_key": "todo:3",
-      "task_label": "3",
-      "task_title": "实现时间推进、事件日志、固定种子骨架",
-      "session_id": "ses_267537f6affercD1aBq4KLVTgn",
+      "task_label": "T3",
+      "task_title": "统一数据模型定义",
+      "session_id": "ses_25a7cb46bffeiP5sTk1MEaBTmV",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-16T23:54:55.209Z"
+      "background_task_id": "bg_2379d06f",
+      "updated_at": "2026-04-19T11:25:00.000Z"
     },
-    "todo:5": {
-      "task_key": "todo:5",
-      "task_label": "5",
-      "task_title": "搭建文字 UI 主框架与事件弹窗",
-      "session_id": "ses_264f3894effeiO0i1uYWGurKqk",
+    "todo:4": {
+      "task_key": "todo:4",
+      "task_label": "T4",
+      "task_title": "SaveService 版本协议 + 迁移框架",
+      "session_id": "ses_25a7c9922ffeLcbzQJziFvT4u6",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "background_task_id": "bg_d749dced",
+      "updated_at": "2026-04-19T11:25:00.000Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan Compliance Audit — oracle",
+      "session_id": "ses_259667b10ffeIZ0W5jLI2MPO9d",
       "agent": "Sisyphus-Junior",
       "category": "deep",
-      "updated_at": "2026-04-17T11:06:20.117Z"
+      "updated_at": "2026-04-19T16:45:03.456Z"
     }
   }
 }

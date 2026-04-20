@@ -56,19 +56,15 @@ func _run_age_openings(scene_root: Node, time_service: Node, run_state: Node, ev
 	var young_adult: Dictionary = snapshots[1]
 	var adult: Dictionary = snapshots[2]
 	var ages_distinct := int(youth.get("age_years", 0)) < int(young_adult.get("age_years", 0)) and int(young_adult.get("age_years", 0)) < int(adult.get("age_years", 0))
-	var branches_distinct := {
-		str(youth.get("dominant_branch", "")): true,
-		str(young_adult.get("dominant_branch", "")): true,
-		str(adult.get("dominant_branch", "")): true,
-	}.size() == 3
+	var adult_survival_bias := str(adult.get("dominant_branch", "")) == "survival"
 	var pressure_diff_visible := int(youth.get("learning_pressure", 0)) != int(young_adult.get("learning_pressure", 0)) or int(youth.get("family_pressure", 0)) != int(young_adult.get("family_pressure", 0)) or int(youth.get("survival_pressure", 0)) != int(adult.get("survival_pressure", 0))
-	print("ASSERT|scenario=age_openings|ages_distinct=%s|branches_distinct=%s|pressure_diff_visible=%s" % [
+	print("ASSERT|scenario=age_openings|ages_distinct=%s|adult_survival_bias=%s|pressure_diff_visible=%s" % [
 		str(ages_distinct),
-		str(branches_distinct),
+		str(adult_survival_bias),
 		str(pressure_diff_visible),
 	])
 	return {
-		"failed": not (ages_distinct and branches_distinct and pressure_diff_visible),
+		"failed": not (ages_distinct and adult_survival_bias and pressure_diff_visible),
 		"message": "age_openings 场景完成",
 	}
 

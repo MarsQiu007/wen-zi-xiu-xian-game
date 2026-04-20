@@ -1,510 +1,357 @@
 extends RefCounted
 class_name NpcBehaviorLibrary
 
-const BehaviorActionScript = preload("res://scripts/data/behavior_action.gd")
+const BehaviorAction = preload("res://scripts/data/behavior_action.gd")
 
 
-const BEHAVIOR_DEFS := {
-	# === SURVIVAL ===
-	"work_for_food": {
-		"label": "外出讨生活",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -3, "family": 0, "learning": 1, "cultivation": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 3.0,
-		"description": "在市集或田间劳作，换取食物和基本生活物资。",
-		"cooldown_hours": 4.0,
-	},
-	"forage_herbs": {
-		"label": "采药觅食",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -2, "learning": 1, "cultivation": 0},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 2.5,
-		"description": "在山林间寻找草药和可食之物。",
-		"cooldown_hours": 6.0,
-	},
-	"rest_recover": {
-		"label": "休息调养",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -2, "cultivation": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "静养恢复体力，调息养神。",
-		"cooldown_hours": 3.0,
-	},
-	"trade_goods": {
-		"label": "市集交易",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -2, "learning": 0},
-		"favor_deltas": {"merchant": 1},
-		"conditions": {},
-		"weight": 2.5,
-		"description": "在市集买卖货物，维持生计。",
-		"cooldown_hours": 8.0,
-	},
-	"hunt_beasts": {
-		"label": "猎杀妖兽",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -1, "cultivation": 2},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 1.5,
-		"description": "深入荒野猎杀妖兽，获取兽核与材料。",
-		"cooldown_hours": 12.0,
-	},
-	"build_shelter": {
-		"label": "修缮居所",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -2, "family": -1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "修缮住所，改善居住条件。",
-		"cooldown_hours": 24.0,
-	},
-	"scavenge_ruins": {
-		"label": "搜寻遗迹",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -1, "learning": 2, "cultivation": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 1.5,
-		"description": "在古老遗迹中搜寻遗物和功法残卷。",
-		"cooldown_hours": 24.0,
-	},
-	"farm_crops": {
-		"label": "耕种灵田",
-		"category": &"survival",
-		"pressure_deltas": {"survival": -2, "family": -1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "照料灵田，种植灵谷灵药。",
-		"cooldown_hours": 12.0,
-	},
-
-	# === SOCIAL ===
-	"chat_with_neighbor": {
-		"label": "与邻里闲聊",
-		"category": &"social",
-		"pressure_deltas": {"survival": 0, "family": 0, "learning": 0, "cultivation": 0},
-		"favor_deltas": {"friend": 2, "neighbor": 1},
-		"conditions": {},
-		"weight": 3.0,
-		"description": "与邻里闲话家常，增进感情。",
-		"cooldown_hours": 4.0,
-	},
-	"seek_mentor_guidance": {
-		"label": "向师长请教",
-		"category": &"social",
-		"pressure_deltas": {"learning": -3, "cultivation": 1},
-		"favor_deltas": {"mentor": 5},
-		"conditions": {"minimum_realm": "q Condensing"},
-		"weight": 2.0,
-		"description": "向有经验的师长请教修行之道。",
-		"cooldown_hours": 24.0,
-	},
-	"visit_tavern": {
-		"label": "酒楼小聚",
-		"category": &"social",
-		"pressure_deltas": {"survival": 1, "learning": 1},
-		"favor_deltas": {"friend": 1, "rival": -1},
-		"conditions": {},
-		"weight": 2.5,
-		"description": "在酒楼与各色人等交流消息。",
-		"cooldown_hours": 8.0,
-	},
-	"attend_gathering": {
-		"label": "参加聚会",
-		"category": &"social",
-		"pressure_deltas": {"survival": 1, "family": -1},
-		"favor_deltas": {"friend": 2, "ally": 1},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "参加修仙者的聚会，结交同道。",
-		"cooldown_hours": 48.0,
-	},
-	"exchange_techniques": {
-		"label": "交流功法",
-		"category": &"social",
-		"pressure_deltas": {"learning": -2, "cultivation": 2},
-		"favor_deltas": {"friend": 3, "rival": -2},
-		"conditions": {"minimum_realm": "q Condensing"},
-		"weight": 1.5,
-		"description": "与同道交流修炼心得，互相启发。",
-		"cooldown_hours": 48.0,
-	},
-	"help_neighbor": {
-		"label": "帮助邻里",
-		"category": &"social",
-		"pressure_deltas": {"survival": 1, "family": -2},
-		"favor_deltas": {"neighbor": 3, "friend": 2},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "帮助邻里解决困难，积累善缘。",
-		"cooldown_hours": 12.0,
-	},
-	"seek_disciple": {
-		"label": "收徒传道",
-		"category": &"social",
-		"pressure_deltas": {"learning": -1, "cultivation": 2},
-		"favor_deltas": {"disciple": 5},
-		"conditions": {"minimum_realm": "foundation"},
-		"weight": 1.0,
-		"description": "收徒传授修行之道，延续传承。",
-		"cooldown_hours": 168.0,
-	},
-	"form_alliance": {
-		"label": "结盟立约",
-		"category": &"social",
-		"pressure_deltas": {"survival": -1, "cultivation": 1},
-		"favor_deltas": {"ally": 5},
-		"conditions": {"minimum_realm": "q Condensing"},
-		"weight": 1.0,
-		"description": "与志同道合者结盟，共谋大事。",
-		"cooldown_hours": 168.0,
-	},
-	"visit_family": {
-		"label": "探望家人",
-		"category": &"social",
-		"pressure_deltas": {"family": -3, "survival": 1},
-		"favor_deltas": {"family": 3},
-		"conditions": {},
-		"weight": 2.5,
-		"description": "回家探望亲人，尽孝尽责。",
-		"cooldown_hours": 24.0,
-	},
-	"spread_rumor": {
-		"label": "散布消息",
-		"category": &"social",
-		"pressure_deltas": {"learning": 1},
-		"favor_deltas": {"rival": -3, "enemy": -2},
-		"conditions": {},
-		"weight": 1.5,
-		"description": "散布消息或谣言，影响舆论。",
-		"cooldown_hours": 24.0,
-	},
-
-	# === CULTIVATION ===
-	"meditate": {
-		"label": "静坐冥想",
-		"category": &"cultivation",
-		"pressure_deltas": {"cultivation": -2, "survival": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 4.0,
-		"description": "静坐冥想，感悟天地灵气。",
-		"cooldown_hours": 2.0,
-	},
-	"practice_technique": {
-		"label": "修炼功法",
-		"category": &"cultivation",
-		"pressure_deltas": {"cultivation": -4, "survival": 1},
-		"favor_deltas": {},
-		"conditions": {"has_technique": true},
-		"weight": 3.0,
-		"description": "专心修炼已得功法，提升修为。",
-		"cooldown_hours": 6.0,
-	},
-	"breakthrough_attempt": {
-		"label": "尝试突破",
-		"category": &"cultivation",
-		"pressure_deltas": {"cultivation": -8, "survival": 3},
-		"favor_deltas": {},
-		"conditions": {"minimum_realm_progress": 90},
-		"weight": 1.0,
-		"description": "尝试突破当前境界，风险与机遇并存。",
-		"cooldown_hours": 168.0,
-	},
-	"refine_pill": {
-		"label": "炼制丹药",
-		"category": &"cultivation",
-		"pressure_deltas": {"cultivation": -2, "learning": 2},
-		"favor_deltas": {"ally": 1},
-		"conditions": {"minimum_realm": "q Condensing"},
-		"weight": 2.0,
-		"description": "炼制辅助修行的丹药。",
-		"cooldown_hours": 24.0,
-	},
-	"absorb_spirit_stone": {
-		"label": "吸收灵石",
-		"category": &"cultivation",
-		"pressure_deltas": {"cultivation": -3},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 3.0,
-		"description": "吸收灵石中的灵气，加速修行。",
-		"cooldown_hours": 4.0,
-	},
-	"study_classics": {
-		"label": "研读典籍",
-		"category": &"cultivation",
-		"pressure_deltas": {"learning": -3, "cultivation": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 3.0,
-		"description": "研读乡塾典籍，增长见闻。",
-		"cooldown_hours": 4.0,
-	},
-	"seek_master": {
-		"label": "打听仙门引路人",
-		"category": &"cultivation",
-		"pressure_deltas": {"survival": 1, "family": 1, "cultivation": -2},
-		"favor_deltas": {"mentor": 2},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "四处打听仙门引路人的消息。",
-		"cooldown_hours": 12.0,
-	},
-	"visit_sect": {
-		"label": "前往山门外探访",
-		"category": &"cultivation",
-		"pressure_deltas": {"survival": 1, "family": 1, "cultivation": -1},
-		"favor_deltas": {"mentor": 2},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "前往修仙宗门探访，寻求机缘。",
-		"cooldown_hours": 24.0,
-	},
-
-	# === EXPLORATION ===
-	"explore_wilderness": {
-		"label": "探索荒野",
-		"category": &"exploration",
-		"pressure_deltas": {"survival": 1, "learning": 2, "cultivation": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "深入荒野探索未知之地。",
-		"cooldown_hours": 12.0,
-	},
-	"search_secret_realm": {
-		"label": "寻找秘境",
-		"category": &"exploration",
-		"pressure_deltas": {"survival": 2, "learning": 3, "cultivation": 2},
-		"favor_deltas": {},
-		"conditions": {"minimum_realm": "q Condensing"},
-		"weight": 1.0,
-		"description": "寻找传说中的秘境入口。",
-		"cooldown_hours": 72.0,
-	},
-	"map_region": {
-		"label": "绘制地图",
-		"category": &"exploration",
-		"pressure_deltas": {"learning": 2},
-		"favor_deltas": {"ally": 1},
-		"conditions": {},
-		"weight": 1.5,
-		"description": "探索并绘制区域地图。",
-		"cooldown_hours": 24.0,
-	},
-	"investigate_anomaly": {
-		"label": "调查异象",
-		"category": &"exploration",
-		"pressure_deltas": {"learning": 3, "cultivation": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 1.5,
-		"description": "调查天地异象，寻找机缘。",
-		"cooldown_hours": 48.0,
-	},
-	"collect_herbs": {
-		"label": "采集灵药",
-		"category": &"exploration",
-		"pressure_deltas": {"survival": -1, "learning": 2, "cultivation": 1},
-		"favor_deltas": {},
-		"conditions": {},
-		"weight": 2.5,
-		"description": "在野外采集灵药和珍稀材料。",
-		"cooldown_hours": 8.0,
-	},
-	"scout_danger": {
-		"label": "侦察险地",
-		"category": &"exploration",
-		"pressure_deltas": {"survival": 2, "learning": 1},
-		"favor_deltas": {"ally": 2},
-		"conditions": {},
-		"weight": 1.5,
-		"description": "侦察危险区域，为同伴探路。",
-		"cooldown_hours": 12.0,
-	},
-
-	# === CONFLICT ===
-	"challenge_rival": {
-		"label": "挑战对手",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": 2, "cultivation": 2},
-		"favor_deltas": {"rival": -3, "enemy": -2},
-		"conditions": {},
-		"weight": 1.5,
-		"description": "向对手发起挑战，一较高下。",
-		"cooldown_hours": 48.0,
-	},
-	"defend_territory": {
-		"label": "守卫领地",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": -1, "family": -2},
-		"favor_deltas": {"ally": 3, "enemy": -3},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "守卫自己的领地和资源。",
-		"cooldown_hours": 24.0,
-	},
-	"ambush_enemy": {
-		"label": "伏击仇敌",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": 3, "cultivation": 1},
-		"favor_deltas": {"enemy": -5},
-		"conditions": {},
-		"weight": 0.5,
-		"description": "暗中伏击仇敌，出其不意。",
-		"cooldown_hours": 72.0,
-	},
-	"compete_resource": {
-		"label": "争夺资源",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": -2, "cultivation": 1},
-		"favor_deltas": {"rival": -2},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "与他人争夺稀缺资源。",
-		"cooldown_hours": 12.0,
-	},
-	"sabotage_rival": {
-		"label": "暗中破坏",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": 1, "learning": 1},
-		"favor_deltas": {"rival": -5, "enemy": -3},
-		"conditions": {},
-		"weight": 0.5,
-		"description": "暗中破坏对手的计划和资源。",
-		"cooldown_hours": 72.0,
-	},
-	"duel_honor": {
-		"label": "决斗争名",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": 2, "cultivation": 3},
-		"favor_deltas": {"rival": -4, "friend": 2},
-		"conditions": {"minimum_realm": "q Condensing"},
-		"weight": 1.0,
-		"description": "为名誉而决斗，胜者为王。",
-		"cooldown_hours": 168.0,
-	},
-	"repel_monster": {
-		"label": "击退妖兽",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": -1, "cultivation": 2},
-		"favor_deltas": {"ally": 2, "neighbor": 1},
-		"conditions": {},
-		"weight": 2.0,
-		"description": "击退侵扰的妖兽，保护乡邻。",
-		"cooldown_hours": 24.0,
-	},
-	"suppress_evil": {
-		"label": "镇压邪修",
-		"category": &"conflict",
-		"pressure_deltas": {"survival": 2, "cultivation": 3},
-		"favor_deltas": {"ally": 3, "enemy": -5},
-		"conditions": {"minimum_realm": "foundation"},
-		"weight": 0.5,
-		"description": "镇压为祸一方的邪修。",
-		"cooldown_hours": 168.0,
-	},
-}
-
-
-var _behaviors: Dictionary = {}
-
-
-func _init() -> void:
-	_build_behaviors()
-
-
-func _build_behaviors() -> void:
-	for key in BEHAVIOR_DEFS:
-		var def: Dictionary = BEHAVIOR_DEFS[key]
-		var action := BehaviorActionScript.new()
-		action.action_id = StringName(key)
-		action.label = str(def.get("label", key))
-		action.category = StringName(str(def.get("category", "")))
-		action.pressure_deltas = def.get("pressure_deltas", {})
-		action.favor_deltas = def.get("favor_deltas", {})
-		action.conditions = def.get("conditions", {})
-		action.weight = float(def.get("weight", 1.0))
-		action.description = str(def.get("description", ""))
-		action.cooldown_hours = float(def.get("cooldown_hours", 0.0))
-		_behaviors[key] = action
+var BEHAVIOR_DEFS: Dictionary = _build_behavior_defs()
 
 
 func get_behavior(action_id: StringName) -> BehaviorAction:
-	var key := String(action_id)
-	if _behaviors.has(key):
-		return _behaviors[key]
-	return null
+	var behavior: BehaviorAction = BEHAVIOR_DEFS.get(action_id, null)
+	if behavior == null:
+		return BehaviorAction.new()
+	return BehaviorAction.from_dict(behavior.to_dict())
 
 
 func get_behaviors_by_category(category: StringName) -> Array[BehaviorAction]:
 	var result: Array[BehaviorAction] = []
-	for key in _behaviors:
-		var action: BehaviorAction = _behaviors[key]
-		if action.category == category:
-			result.append(action)
+	for behavior: BehaviorAction in BEHAVIOR_DEFS.values():
+		if behavior.category == category:
+			result.append(BehaviorAction.from_dict(behavior.to_dict()))
 	return result
 
 
 func get_available_behaviors(npc_state: Dictionary, current_hours: float) -> Array[BehaviorAction]:
 	var result: Array[BehaviorAction] = []
-	var realm := str(npc_state.get("cultivation_state", {}).get("realm", "mortal"))
-	var has_technique := bool(npc_state.get("cultivation_state", {}).get("has_technique", false))
-	var realm_progress := int(npc_state.get("cultivation_state", {}).get("progress", 0))
-	var last_action_hours := float(npc_state.get("last_action_hours", -999999.0))
-
-	for key in _behaviors:
-		var action: BehaviorAction = _behaviors[key]
-		var conditions: Dictionary = action.conditions
-
-		# 检查 minimum_realm 条件
-		if conditions.has("minimum_realm"):
-			var required_realm := str(conditions["minimum_realm"])
-			if not _is_realm_sufficient(realm, required_realm):
-				continue
-
-		# 检查 has_technique 条件
-		if conditions.has("has_technique"):
-			if bool(conditions["has_technique"]) != has_technique:
-				continue
-
-		# 检查 minimum_realm_progress 条件
-		if conditions.has("minimum_realm_progress"):
-			if realm_progress < int(conditions["minimum_realm_progress"]):
-				continue
-
-		# 检查冷却
-		if action.cooldown_hours > 0.0 and last_action_hours >= 0.0:
-			if current_hours - last_action_hours < action.cooldown_hours:
-				continue
-
-		result.append(action)
+	for behavior: BehaviorAction in BEHAVIOR_DEFS.values():
+		if not _meets_conditions(behavior.conditions, npc_state):
+			continue
+		if _is_on_cooldown(behavior, npc_state, current_hours):
+			continue
+		result.append(BehaviorAction.from_dict(behavior.to_dict()))
 	return result
 
 
 func get_random_behavior(category: StringName, rng: RefCounted) -> BehaviorAction:
-	var behaviors := get_behaviors_by_category(category)
-	if behaviors.is_empty():
-		return null
-	return behaviors[rng.randi() % behaviors.size()]
+	var candidates := get_behaviors_by_category(category)
+	if candidates.is_empty():
+		return BehaviorAction.new()
+
+	var total_weight := 0.0
+	for behavior in candidates:
+		total_weight += maxf(behavior.weight, 0.0)
+
+	if total_weight <= 0.0:
+		return BehaviorAction.from_dict(candidates[0].to_dict())
+
+	var roll := _rng_randf(rng) * total_weight
+	var cumulative := 0.0
+	for behavior in candidates:
+		cumulative += maxf(behavior.weight, 0.0)
+		if roll <= cumulative:
+			return BehaviorAction.from_dict(behavior.to_dict())
+
+	return BehaviorAction.from_dict(candidates.back().to_dict())
 
 
-func _is_realm_sufficient(current: String, required: String) -> bool:
-	var realm_order := ["mortal", "q Condensing", "foundation", "golden_core"]
-	var current_idx := realm_order.find(current)
-	var required_idx := realm_order.find(required)
-	if current_idx == -1:
-		current_idx = 0
-	if required_idx == -1:
-		required_idx = 0
-	return current_idx >= required_idx
+func _is_on_cooldown(behavior: BehaviorAction, npc_state: Dictionary, current_hours: float) -> bool:
+	if behavior.cooldown_hours <= 0.0:
+		return false
+
+	var last_action_hours := npc_state.get("last_action_hours", {}) as Dictionary
+	var has_time := false
+	var last_time := 0.0
+
+	if last_action_hours.has(behavior.action_id):
+		has_time = true
+		last_time = float(last_action_hours.get(behavior.action_id, 0.0))
+	elif last_action_hours.has(String(behavior.action_id)):
+		has_time = true
+		last_time = float(last_action_hours.get(String(behavior.action_id), 0.0))
+
+	if not has_time:
+		return false
+
+	return (current_hours - last_time) < behavior.cooldown_hours
+
+
+func _meets_conditions(conditions: Dictionary, npc_state: Dictionary) -> bool:
+	if conditions.is_empty():
+		return true
+
+	var realm := StringName(str(npc_state.get("realm", "")))
+	var realm_progress := float(npc_state.get("realm_progress", 0.0))
+	var has_technique := bool(npc_state.get("has_technique", false))
+
+	for key in conditions.keys():
+		var value = conditions[key]
+		match StringName(key):
+			&"has_technique":
+				if has_technique != bool(value):
+					return false
+			&"min_realm_progress":
+				if realm_progress < float(value):
+					return false
+			&"realm":
+				if realm != StringName(str(value)):
+					return false
+			&"realms":
+				if value is Array:
+					if not value.has(realm) and not value.has(String(realm)):
+						return false
+			_:
+				pass
+
+	return true
+
+
+func _rng_randf(rng: RefCounted) -> float:
+	if rng != null and rng.has_method("randf"):
+		return float(rng.call("randf"))
+	if rng != null and rng.has_method("randf_range"):
+		return float(rng.call("randf_range", 0.0, 1.0))
+	return randf()
+
+
+func _make_behavior(
+		action_id: StringName,
+		label: String,
+		category: StringName,
+		pressure_deltas: Dictionary,
+		favor_deltas: Dictionary,
+		conditions: Dictionary,
+		weight: float,
+		description: String,
+		cooldown_hours: float
+	) -> BehaviorAction:
+	var behavior := BehaviorAction.new()
+	behavior.action_id = action_id
+	behavior.label = label
+	behavior.category = category
+	behavior.pressure_deltas = pressure_deltas.duplicate(true)
+	behavior.favor_deltas = favor_deltas.duplicate(true)
+	behavior.conditions = conditions.duplicate(true)
+	behavior.weight = weight
+	behavior.description = description
+	behavior.cooldown_hours = cooldown_hours
+	return behavior
+
+
+func _build_behavior_defs() -> Dictionary:
+	return {
+		# survival (8)
+		&"work_for_food": _make_behavior(
+			&"work_for_food", "外出讨生活", &"survival",
+			{"survival": -3, "resource": 2, "reputation": 1}, {}, {}, 4.5,
+			"为换取口粮外出劳作，先稳住生计再图后路。", 6.0
+		),
+		&"gather_herbs": _make_behavior(
+			&"gather_herbs", "采集草药", &"survival",
+			{"survival": -2, "resource": 2, "learning": 1}, {}, {}, 3.6,
+			"进山识草采药，既能补给也能增长见识。", 10.0
+		),
+		&"hunt_game": _make_behavior(
+			&"hunt_game", "狩猎", &"survival",
+			{"survival": -3, "resource": 3, "reputation": 1}, {}, {"min_realm_progress": 15.0}, 3.2,
+			"追踪野兽获取肉食与皮货，但需要一定体魄与胆气。", 18.0
+		),
+		&"rest_at_home": _make_behavior(
+			&"rest_at_home", "居家休养", &"survival",
+			{"survival": -2, "belonging": 1, "cultivation": -1}, {"family": 2}, {}, 3.8,
+			"留在家中调养身心，减少外界风险。", 4.0
+		),
+		&"trade_goods": _make_behavior(
+			&"trade_goods", "市集交易", &"survival",
+			{"resource": 3, "reputation": 1, "survival": -1}, {"merchant": 2}, {}, 3.4,
+			"携带物资去集市互通有无，补足短缺。", 12.0
+		),
+		&"forage_wild": _make_behavior(
+			&"forage_wild", "野外觅食", &"survival",
+			{"survival": -2, "resource": 1, "learning": 1}, {}, {}, 2.8,
+			"在山林河畔寻找可食之物，勉强渡过眼前难关。", 8.0
+		),
+		&"seek_shelter": _make_behavior(
+			&"seek_shelter", "寻找庇护", &"survival",
+			{"survival": -2, "belonging": 1, "reputation": -1}, {"family": 1}, {}, 2.5,
+			"向可信势力寻求暂时庇护，以避风头。", 24.0
+		),
+		&"beg_alms": _make_behavior(
+			&"beg_alms", "沿街乞讨", &"survival",
+			{"survival": -1, "resource": 1, "reputation": -2}, {"stranger": -1}, {}, 1.6,
+			"放下体面求得一口饭，代价是名声受损。", 6.0
+		),
+
+		# social (11)
+		&"chat_with_neighbor": _make_behavior(
+			&"chat_with_neighbor", "与邻里闲聊", &"social",
+			{"belonging": -2, "reputation": 1, "learning": 1}, {"neighbor": 2, "friend": 1}, {}, 4.2,
+			"与街坊交流近况，维持人情网络。", 3.0
+		),
+		&"seek_mentor_guidance": _make_behavior(
+			&"seek_mentor_guidance", "向师长请教", &"social",
+			{"learning": -2, "cultivation": -1, "belonging": -1}, {"mentor": 3}, {}, 3.6,
+			"向阅历更深者求教，借他山之石攻玉。", 12.0
+		),
+		&"visit_friend": _make_behavior(
+			&"visit_friend", "拜访友人", &"social",
+			{"belonging": -2, "reputation": 1, "survival": -1}, {"friend": 3}, {}, 3.9,
+			"登门探望旧友，巩固彼此信任。", 8.0
+		),
+		&"attend_gathering": _make_behavior(
+			&"attend_gathering", "参加集会", &"social",
+			{"belonging": -2, "reputation": 2, "resource": -1}, {"friend": 1, "mentor": 1}, {}, 3.1,
+			"在集会中交换消息与立场，拓展人脉。", 18.0
+		),
+		&"exchange_gifts": _make_behavior(
+			&"exchange_gifts", "互赠礼物", &"social",
+			{"belonging": -1, "reputation": 1, "resource": -2}, {"friend": 2, "family": 2}, {}, 2.7,
+			"以礼相待能增进关系，但会消耗手头物资。", 24.0
+		),
+		&"resolve_dispute": _make_behavior(
+			&"resolve_dispute", "调解纠纷", &"social",
+			{"reputation": 2, "belonging": -1, "learning": 1}, {"neighbor": 2, "friend": 1}, {"min_realm_progress": 20.0}, 2.4,
+			"出面调停矛盾，既考验威望也考验分寸。", 20.0
+		),
+		&"spread_rumor": _make_behavior(
+			&"spread_rumor", "散布流言", &"social",
+			{"reputation": -2, "belonging": -1, "resource": 1}, {"friend": -2, "mentor": -1}, {}, 1.4,
+			"刻意放出风声以搅动局势，短利伴随长险。", 14.0
+		),
+		&"form_alliance": _make_behavior(
+			&"form_alliance", "结盟", &"social",
+			{"reputation": 2, "belonging": -1, "resource": 1}, {"friend": 3, "mentor": 1}, {"min_realm_progress": 35.0}, 2.2,
+			"与志同道合者定下互助约定，共担风险共取收益。", 36.0
+		),
+		&"betray_trust": _make_behavior(
+			&"betray_trust", "背叛信任", &"social",
+			{"resource": 2, "reputation": -3, "belonging": 2}, {"friend": -4, "mentor": -3, "family": -2}, {}, 1.0,
+			"短期获利来自背信弃义，后续报复难以避免。", 72.0
+		),
+		&"host_feast": _make_behavior(
+			&"host_feast", "设宴款待", &"social",
+			{"reputation": 2, "belonging": -2, "resource": -3}, {"friend": 2, "family": 1, "mentor": 1}, {"min_realm_progress": 30.0}, 1.8,
+			"设宴广邀宾客，以资源换取声望与情面。", 48.0
+		),
+		&"seek_disciple": _make_behavior(
+			&"seek_disciple", "收徒传道", &"social",
+			{"reputation": 2, "learning": -1, "cultivation": 1}, {"disciple": 3, "mentor": 1}, {"min_realm_progress": 80.0}, 1.3,
+			"物色可塑之才，传授经验并建立传承关系。", 96.0
+		),
+
+		# cultivation (8)
+		&"meditate": _make_behavior(
+			&"meditate", "静坐冥想", &"cultivation",
+			{"cultivation": -3, "learning": -1, "survival": 1}, {}, {}, 4.8,
+			"收敛心神吐纳周天，稳步积累修行底子。", 4.0
+		),
+		&"practice_technique": _make_behavior(
+			&"practice_technique", "修炼功法", &"cultivation",
+			{"cultivation": -3, "learning": -1, "resource": -1}, {}, {"has_technique": true}, 4.4,
+			"按功法运转灵力，提升境界掌控力。", 8.0
+		),
+		&"breakthrough_attempt": _make_behavior(
+			&"breakthrough_attempt", "尝试突破", &"cultivation",
+			{"cultivation": -4, "survival": 2, "reputation": 1}, {}, {"min_realm_progress": 90.0}, 1.7,
+			"在关隘处强行冲关，成功与反噬并存。", 72.0
+		),
+		&"study_scroll": _make_behavior(
+			&"study_scroll", "研读典籍", &"cultivation",
+			{"learning": -3, "cultivation": -1, "resource": -1}, {}, {}, 3.7,
+			"研习卷轴心得，补齐理论与术法细节。", 10.0
+		),
+		&"refine_pill": _make_behavior(
+			&"refine_pill", "炼丹", &"cultivation",
+			{"resource": -2, "cultivation": -2, "learning": -1}, {}, {"has_technique": true, "min_realm_progress": 40.0}, 2.3,
+			"调和药性炼制丹丸，以消耗换取后续潜力。", 36.0
+		),
+		&"forge_weapon": _make_behavior(
+			&"forge_weapon", "锻造法器", &"cultivation",
+			{"resource": -2, "cultivation": -1, "reputation": 1}, {}, {"min_realm_progress": 30.0}, 2.1,
+			"淬火锻材凝炼器胚，提升实战底牌。", 48.0
+		),
+		&"absorb_spirit": _make_behavior(
+			&"absorb_spirit", "吸纳灵气", &"cultivation",
+			{"cultivation": -2, "survival": 1, "resource": -1}, {}, {"min_realm_progress": 20.0}, 3.5,
+			"借灵脉或灵地汲取灵气，快速补充修行所需。", 12.0
+		),
+		&"purify_body": _make_behavior(
+			&"purify_body", "淬体", &"cultivation",
+			{"cultivation": -2, "survival": 1, "resource": -1}, {}, {"has_technique": true}, 2.9,
+			"以灵力洗练筋骨血脉，夯实承载上限。", 20.0
+		),
+
+		# exploration (6)
+		&"scout_area": _make_behavior(
+			&"scout_area", "侦察周边", &"exploration",
+			{"learning": -1, "resource": 1, "survival": 1}, {}, {}, 3.8,
+			"踏查附近地形与势力动向，降低未知风险。", 6.0
+		),
+		&"enter_dungeon": _make_behavior(
+			&"enter_dungeon", "探索秘境", &"exploration",
+			{"resource": 2, "learning": -1, "survival": 2}, {}, {"min_realm_progress": 45.0}, 1.9,
+			"深入秘境寻机缘，回报可观但危险同样陡增。", 60.0
+		),
+		&"search_ruins": _make_behavior(
+			&"search_ruins", "搜寻遗迹", &"exploration",
+			{"learning": -2, "resource": 2, "survival": 1}, {}, {"min_realm_progress": 35.0}, 2.4,
+			"在废墟残阵中寻找可用线索与遗留资源。", 30.0
+		),
+		&"map_territory": _make_behavior(
+			&"map_territory", "绘制地图", &"exploration",
+			{"learning": -1, "resource": 1, "reputation": 1}, {}, {}, 2.7,
+			"整理路径与地貌信息，为后续行动铺路。", 16.0
+		),
+		&"investigate_anomaly": _make_behavior(
+			&"investigate_anomaly", "调查异象", &"exploration",
+			{"learning": -2, "cultivation": -1, "survival": 2}, {}, {"min_realm_progress": 50.0}, 1.6,
+			"追查灵力波动与异常天象，常伴不可预见事件。", 42.0
+		),
+		&"gather_intel": _make_behavior(
+			&"gather_intel", "收集情报", &"exploration",
+			{"learning": -1, "reputation": 1, "resource": 1}, {"neighbor": 1, "friend": 1}, {}, 3.0,
+			"从多方渠道拼接情报，提早发现机会与威胁。", 10.0
+		),
+
+		# conflict (8)
+		&"challenge_duel": _make_behavior(
+			&"challenge_duel", "发起决斗", &"conflict",
+			{"reputation": 2, "survival": 2, "cultivation": -1}, {"rival": -2}, {"min_realm_progress": 30.0}, 2.2,
+			"公开邀战证明实力，胜负都会带来名声波动。", 36.0
+		),
+		&"ambush_enemy": _make_behavior(
+			&"ambush_enemy", "伏击敌人", &"conflict",
+			{"resource": 2, "reputation": -1, "survival": 2}, {"rival": -3}, {"min_realm_progress": 40.0}, 1.5,
+			"利用地形先发制人，追求速胜但风险极高。", 48.0
+		),
+		&"defend_territory": _make_behavior(
+			&"defend_territory", "守卫领地", &"conflict",
+			{"belonging": -1, "reputation": 2, "survival": 1}, {"family": 1, "friend": 1}, {}, 2.8,
+			"驻守要地抵御侵扰，维护自身与同伴利益。", 20.0
+		),
+		&"raid_resource": _make_behavior(
+			&"raid_resource", "抢夺资源", &"conflict",
+			{"resource": 3, "reputation": -2, "survival": 2}, {"rival": -2, "friend": -1}, {"min_realm_progress": 45.0}, 1.3,
+			"主动袭取对手补给，收益高但仇恨累积明显。", 60.0
+		),
+		&"assassinate": _make_behavior(
+			&"assassinate", "暗杀", &"conflict",
+			{"resource": 1, "reputation": -3, "survival": 3}, {"rival": -4, "mentor": -1}, {"has_technique": true, "min_realm_progress": 60.0}, 1.0,
+			"潜行伏杀关键目标，成败都可能改写局势。", 96.0
+		),
+		&"negotiate_truce": _make_behavior(
+			&"negotiate_truce", "谈判停战", &"conflict",
+			{"reputation": 1, "belonging": -1, "resource": -1}, {"rival": 1, "friend": 1}, {}, 2.0,
+			"通过让步与交换换取暂时和平，争取恢复时间。", 30.0
+		),
+		&"join_battle": _make_behavior(
+			&"join_battle", "加入战斗", &"conflict",
+			{"reputation": 2, "survival": 2, "cultivation": -1}, {"ally": 2, "rival": -2}, {"min_realm_progress": 25.0}, 2.6,
+			"响应战局站队参战，以实力争取更高话语权。", 24.0
+		),
+		&"flee_conflict": _make_behavior(
+			&"flee_conflict", "逃离冲突", &"conflict",
+			{"survival": -2, "reputation": -1, "belonging": 1}, {"family": 1}, {}, 2.9,
+			"暂避锋芒保存实力，等待更有利时机。", 12.0
+		),
+	}

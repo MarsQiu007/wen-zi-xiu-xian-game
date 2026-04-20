@@ -12,6 +12,7 @@ human_visible = true
 deity_visible = true
 region_type = &"sect_hub"
 parent_region_id = &""
+adjacent_region_ids = PackedStringArray("mvp_village_region", "mvp_beast_ridge_region", "mvp_deadfall_abyss_region")
 controlling_faction_id = &"mvp_small_sect"
 active_population_hint = 160
 resource_tags = PackedStringArray("spirit_vein", "herbs", "stone")

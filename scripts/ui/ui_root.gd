@@ -439,6 +439,7 @@ func _build_minimal_ui() -> void:
 	_right_content_panel.add_child(_log_content_panel)
 	
 	var log_vbox := VBoxContainer.new()
+	log_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_log_content_panel.add_child(log_vbox)
 	
 	var log_toolbar := HBoxContainer.new()
@@ -497,6 +498,7 @@ func _build_minimal_ui() -> void:
 	
 	var map_vbox := VBoxContainer.new()
 	map_vbox.name = "MapVBox"
+	map_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_map_content_panel.add_child(map_vbox)
 	
 	var map_toolbar := HBoxContainer.new()
@@ -527,6 +529,7 @@ func _build_minimal_ui() -> void:
 	_world_chars_panel.hide()
 	
 	var chars_vbox := VBoxContainer.new()
+	chars_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_world_chars_panel.add_child(chars_vbox)
 	
 	var chars_toolbar := HBoxContainer.new()
@@ -582,6 +585,7 @@ func _build_minimal_ui() -> void:
 	
 	_embedded_detail_label = RichTextLabel.new()
 	_embedded_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_embedded_detail_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_embedded_detail_label.bbcode_enabled = true
 	_embedded_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_vbox.add_child(_embedded_detail_label)
@@ -617,6 +621,7 @@ func _build_minimal_ui() -> void:
 	_favor_panel.add_child(favor_margin)
 
 	var favor_vbox := VBoxContainer.new()
+	favor_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	favor_margin.add_child(favor_vbox)
 
 	var favor_title := Label.new()
@@ -661,6 +666,7 @@ func _build_minimal_ui() -> void:
 	_inventory_panel.hide()
 
 	var inv_vbox := VBoxContainer.new()
+	inv_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_inventory_panel.add_child(inv_vbox)
 
 	var inv_title := Label.new()
@@ -685,6 +691,7 @@ func _build_minimal_ui() -> void:
 	_inventory_detail_label.bbcode_enabled = true
 	_inventory_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_inventory_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_inventory_detail_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_inventory_detail_label.text = "请选择左侧物品查看详情。"
 	inv_right_vsplit.add_child(_inventory_detail_label)
 
@@ -712,17 +719,20 @@ func _build_minimal_ui() -> void:
 
 	var inv_summary_vbox := VBoxContainer.new()
 	inv_summary_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inv_summary_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	inv_right_vsplit.add_child(inv_summary_vbox)
 
 	_inventory_equipment_label = RichTextLabel.new()
 	_inventory_equipment_label.bbcode_enabled = true
 	_inventory_equipment_label.custom_minimum_size = Vector2(0, 100)
+	_inventory_equipment_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_inventory_equipment_label.text = "[b]- 已装备槽位 -[/b]\n暂无"
 	inv_summary_vbox.add_child(_inventory_equipment_label)
 
 	_inventory_stats_label = RichTextLabel.new()
 	_inventory_stats_label.bbcode_enabled = true
 	_inventory_stats_label.custom_minimum_size = Vector2(0, 100)
+	_inventory_stats_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_inventory_stats_label.text = "[b]- 属性总览 -[/b]\n暂无"
 	inv_summary_vbox.add_child(_inventory_stats_label)
 
@@ -737,6 +747,7 @@ func _build_minimal_ui() -> void:
 	_crafting_panel.hide()
 	
 	var craft_vbox := VBoxContainer.new()
+	craft_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crafting_panel.add_child(craft_vbox)
 	
 	var craft_toolbar := HBoxContainer.new()
@@ -778,6 +789,7 @@ func _build_minimal_ui() -> void:
 	
 	_crafting_detail_label = RichTextLabel.new()
 	_crafting_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_crafting_detail_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crafting_detail_label.bbcode_enabled = true
 	_crafting_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	c_detail_vbox.add_child(_crafting_detail_label)
@@ -805,6 +817,7 @@ func _build_minimal_ui() -> void:
 	_technique_panel.hide()
 	
 	var tech_vbox := VBoxContainer.new()
+	tech_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_technique_panel.add_child(tech_vbox)
 	
 	var tech_title := Label.new()
@@ -828,6 +841,7 @@ func _build_minimal_ui() -> void:
 	
 	_technique_detail_label = RichTextLabel.new()
 	_technique_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_technique_detail_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_technique_detail_label.bbcode_enabled = true
 	_technique_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_technique_detail_label.text = "请选择左侧功法查看详情。"
@@ -866,6 +880,7 @@ func _build_minimal_ui() -> void:
 	_trade_panel.hide()
 
 	var trade_vbox := VBoxContainer.new()
+	trade_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_trade_panel.add_child(trade_vbox)
 
 	_trade_spirit_stone_label = Label.new()
@@ -890,6 +905,7 @@ func _build_minimal_ui() -> void:
 
 	_trade_detail_label = RichTextLabel.new()
 	_trade_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_trade_detail_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_trade_detail_label.bbcode_enabled = true
 	_trade_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_trade_detail_label.text = "请选择左侧物品查看详情。"
@@ -971,7 +987,9 @@ func _build_minimal_ui() -> void:
 	# Combat log
 	_combat_log_label = RichTextLabel.new()
 	_combat_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_combat_log_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_combat_log_label.bbcode_enabled = true
+	_combat_log_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	combat_vbox.add_child(_combat_log_label)
 
 	# Action buttons
@@ -998,7 +1016,9 @@ func _build_minimal_ui() -> void:
 	# Result label
 	_combat_result_label = RichTextLabel.new()
 	_combat_result_label.custom_minimum_size = Vector2(0, 60)
+	_combat_result_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_combat_result_label.bbcode_enabled = true
+	_combat_result_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	combat_vbox.add_child(_combat_result_label)
 
 	_game_ui_container.add_child(_combat_panel)
@@ -2442,6 +2462,7 @@ func _build_map_ui() -> void:
 	
 	var info_vbox := VBoxContainer.new()
 	info_vbox.custom_minimum_size = Vector2(0, 200)
+	info_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_vsplit.add_child(info_vbox)
 	
 	var info_title := Label.new()
@@ -2455,8 +2476,10 @@ func _build_map_ui() -> void:
 	
 	_region_detail_label = RichTextLabel.new()
 	_region_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_region_detail_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_region_detail_label.bbcode_enabled = true
 	_region_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_region_detail_label.fit_content = true
 	detail_scroll.add_child(_region_detail_label)
 	
 	var chars_vbox := VBoxContainer.new()

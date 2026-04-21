@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/technique_affix.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+affix_id = "mvp_affix_blazing_edge"
+affix_name = "灼锋"
+affix_category = "offensive"
+effect = {
+"burn_chance": 0.12,
+"damage_bonus": 0.08
+}
+rarity = "uncommon"
+compatible_types = Array[String](["martial_skill", "spirit_skill"])

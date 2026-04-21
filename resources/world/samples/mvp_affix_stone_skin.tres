@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/technique_affix.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+affix_id = "mvp_affix_stone_skin"
+affix_name = "石肤"
+affix_category = "defensive"
+effect = {
+"defense_bonus": 6,
+"damage_reduction": 0.06
+}
+rarity = "common"
+compatible_types = Array[String](["passive_method", "movement_method"])

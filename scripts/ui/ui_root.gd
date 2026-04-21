@@ -66,6 +66,59 @@ var _favor_panel: PanelContainer
 var _favor_list_vbox: VBoxContainer
 var _favor_sort_mode: String = "favor"
 var _inventory_panel: PanelContainer
+var _inventory_item_list: ItemList
+var _inventory_detail_label: RichTextLabel
+var _inventory_equipment_label: RichTextLabel
+var _inventory_stats_label: RichTextLabel
+var _inventory_equip_btn: Button
+var _inventory_use_btn: Button
+var _inventory_drop_btn: Button
+var _inventory_selected_record: Dictionary = {}
+var _inventory_entries: Array[Dictionary] = []
+var _inventory_item_defs: Dictionary = {}
+var _inventory_catalog: Resource
+
+# Crafting UI components
+var _crafting_panel: PanelContainer
+var _crafting_recipe_list: ItemList
+var _crafting_detail_label: RichTextLabel
+var _crafting_btn: Button
+var _crafting_type_filter: OptionButton
+var _current_recipes: Array[Resource] = []
+var _crafting_selected_recipe: Resource = null
+
+# Technique UI components
+var _technique_panel: PanelContainer
+var _technique_list: ItemList
+var _technique_detail_label: RichTextLabel
+var _technique_equip_btn: Button
+var _technique_meditate_btn: Button
+var _technique_slot_option: OptionButton
+var _learned_techniques: Array[Dictionary] = []
+var _technique_selected_id: String = ""
+
+# Trade UI components
+var _trade_panel: PanelContainer
+var _trade_goods_list: ItemList
+var _trade_detail_label: RichTextLabel
+var _trade_buy_btn: Button
+var _trade_sell_btn: Button
+var _trade_spirit_stone_label: Label
+var _trade_goods: Array[Dictionary] = []
+var _trade_selected_good: Dictionary = {}
+
+# Combat Popup UI components
+var _combat_panel: PanelContainer
+var _combat_player_hp_bar: ProgressBar
+var _combat_enemy_hp_bar: ProgressBar
+var _combat_player_hp_label: Label
+var _combat_enemy_hp_label: Label
+var _combat_log_label: RichTextLabel
+var _combat_attack_btn: Button
+var _combat_item_btn: Button
+var _combat_flee_btn: Button
+var _combat_result_label: RichTextLabel
+
 
 # Map UI components
 var _map_panel: PanelContainer
@@ -151,8 +204,10 @@ func _bind_singletons() -> void:
 
 func bind_runner(runner: Node) -> void:
 	_sim_runner = runner
+	_inventory_catalog = null
 	_refresh_text()
 	_refresh_log()
+	_refresh_inventory_panel()
 
 
 func show_main_menu() -> void:
@@ -350,7 +405,10 @@ func _build_minimal_ui() -> void:
 		{"id": "map", "name": "世界地图"},
 		{"id": "world_chars", "name": "世界角色"},
 		{"id": "favor", "name": "人际好感"},
-		{"id": "inventory", "name": "个人背包"}
+				{"id": "inventory", "name": "个人背包"},
+		{"id": "crafting", "name": "炼丹炼器"},
+		{"id": "technique", "name": "功法"},
+		{"id": "trade", "name": "交易"}
 	]
 
 	for tab in tabs:
@@ -591,21 +649,366 @@ func _build_minimal_ui() -> void:
 
 	_right_content_panel.add_child(_favor_panel)
 
-	# Inventory Content Panel Placeholder
+	# Inventory Content Panel
 	_inventory_panel = PanelContainer.new()
 	_inventory_panel.name = "InventoryContentPanel"
 	_inventory_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_inventory_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_inventory_panel.clip_contents = true
 	_inventory_panel.hide()
-	var inv_lbl := Label.new()
-	inv_lbl.text = "背包功能正在开发中"
-	inv_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_inventory_panel.add_child(inv_lbl)
+
+	var inv_vbox := VBoxContainer.new()
+	_inventory_panel.add_child(inv_vbox)
+
+	var inv_title := Label.new()
+	inv_title.text = "- 个人背包 -"
+	inv_vbox.add_child(inv_title)
+
+	var inv_hsplit := HSplitContainer.new()
+	inv_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inv_vbox.add_child(inv_hsplit)
+
+	_inventory_item_list = ItemList.new()
+	_inventory_item_list.custom_minimum_size = Vector2(260, 0)
+	_inventory_item_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_inventory_item_list.item_selected.connect(_on_inventory_item_selected)
+	inv_hsplit.add_child(_inventory_item_list)
+
+	var inv_right_vsplit := VSplitContainer.new()
+	inv_right_vsplit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inv_hsplit.add_child(inv_right_vsplit)
+
+	_inventory_detail_label = RichTextLabel.new()
+	_inventory_detail_label.bbcode_enabled = true
+	_inventory_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_inventory_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_inventory_detail_label.text = "请选择左侧物品查看详情。"
+	inv_right_vsplit.add_child(_inventory_detail_label)
+
+	var inv_action_hbox := HBoxContainer.new()
+	inv_action_hbox.add_theme_constant_override("separation", 8)
+	inv_right_vsplit.add_child(inv_action_hbox)
+
+	_inventory_equip_btn = Button.new()
+	_inventory_equip_btn.text = "装备"
+	_inventory_equip_btn.disabled = true
+	_inventory_equip_btn.pressed.connect(_on_inventory_equip_pressed)
+	inv_action_hbox.add_child(_inventory_equip_btn)
+
+	_inventory_use_btn = Button.new()
+	_inventory_use_btn.text = "使用"
+	_inventory_use_btn.disabled = true
+	_inventory_use_btn.pressed.connect(_on_inventory_use_pressed)
+	inv_action_hbox.add_child(_inventory_use_btn)
+
+	_inventory_drop_btn = Button.new()
+	_inventory_drop_btn.text = "丢弃1个"
+	_inventory_drop_btn.disabled = true
+	_inventory_drop_btn.pressed.connect(_on_inventory_drop_pressed)
+	inv_action_hbox.add_child(_inventory_drop_btn)
+
+	var inv_summary_vbox := VBoxContainer.new()
+	inv_summary_vbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inv_right_vsplit.add_child(inv_summary_vbox)
+
+	_inventory_equipment_label = RichTextLabel.new()
+	_inventory_equipment_label.bbcode_enabled = true
+	_inventory_equipment_label.custom_minimum_size = Vector2(0, 120)
+	_inventory_equipment_label.text = "[b]- 已装备槽位 -[/b]\n暂无"
+	inv_summary_vbox.add_child(_inventory_equipment_label)
+
+	_inventory_stats_label = RichTextLabel.new()
+	_inventory_stats_label.bbcode_enabled = true
+	_inventory_stats_label.custom_minimum_size = Vector2(0, 140)
+	_inventory_stats_label.text = "[b]- 属性总览 -[/b]\n暂无"
+	inv_summary_vbox.add_child(_inventory_stats_label)
+
 	_right_content_panel.add_child(_inventory_panel)
+
+	# Crafting Content Panel
+	_crafting_panel = PanelContainer.new()
+	_crafting_panel.name = "CraftingContentPanel"
+	_crafting_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_crafting_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_crafting_panel.clip_contents = true
+	_crafting_panel.hide()
+	
+	var craft_vbox := VBoxContainer.new()
+	_crafting_panel.add_child(craft_vbox)
+	
+	var craft_toolbar := HBoxContainer.new()
+	craft_toolbar.add_theme_constant_override("separation", 8)
+	craft_vbox.add_child(craft_toolbar)
+	
+	var craft_title := Label.new()
+	craft_title.text = "- 炼丹与炼器 -"
+	craft_toolbar.add_child(craft_title)
+	
+	var craft_spacer := Control.new()
+	craft_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	craft_toolbar.add_child(craft_spacer)
+	
+	_crafting_type_filter = OptionButton.new()
+	_crafting_type_filter.add_item("全部配方")
+	_crafting_type_filter.set_item_metadata(0, "all")
+	_crafting_type_filter.add_item("炼丹 (Alchemy)")
+	_crafting_type_filter.set_item_metadata(1, "alchemy")
+	_crafting_type_filter.add_item("炼器 (Forge)")
+	_crafting_type_filter.set_item_metadata(2, "forge")
+	_crafting_type_filter.item_selected.connect(func(_idx): _refresh_crafting_panel())
+	craft_toolbar.add_child(_crafting_type_filter)
+	
+	var craft_hsplit := HSplitContainer.new()
+	craft_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	craft_vbox.add_child(craft_hsplit)
+	
+	_crafting_recipe_list = ItemList.new()
+	_crafting_recipe_list.custom_minimum_size = Vector2(250, 0)
+	_crafting_recipe_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_crafting_recipe_list.item_selected.connect(_on_crafting_recipe_selected)
+	craft_hsplit.add_child(_crafting_recipe_list)
+	
+	var c_detail_vbox := VBoxContainer.new()
+	c_detail_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	c_detail_vbox.size_flags_stretch_ratio = 2.0
+	craft_hsplit.add_child(c_detail_vbox)
+	
+	_crafting_detail_label = RichTextLabel.new()
+	_crafting_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_crafting_detail_label.bbcode_enabled = true
+	c_detail_vbox.add_child(_crafting_detail_label)
+	
+	var craft_btn_margin := MarginContainer.new()
+	craft_btn_margin.add_theme_constant_override("margin_top", 10)
+	craft_btn_margin.add_theme_constant_override("margin_bottom", 10)
+	c_detail_vbox.add_child(craft_btn_margin)
+	
+	_crafting_btn = Button.new()
+	_crafting_btn.text = "开始制作"
+	_crafting_btn.custom_minimum_size = Vector2(0, 40)
+	_crafting_btn.disabled = true
+	_crafting_btn.pressed.connect(_on_crafting_btn_pressed)
+	craft_btn_margin.add_child(_crafting_btn)
+	
+	_right_content_panel.add_child(_crafting_panel)
+	
+	# Technique Content Panel
+	_technique_panel = PanelContainer.new()
+	_technique_panel.name = "TechniqueContentPanel"
+	_technique_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_technique_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_technique_panel.clip_contents = true
+	_technique_panel.hide()
+	
+	var tech_vbox := VBoxContainer.new()
+	_technique_panel.add_child(tech_vbox)
+	
+	var tech_title := Label.new()
+	tech_title.text = "- 功法 -"
+	tech_vbox.add_child(tech_title)
+	
+	var tech_hsplit := HSplitContainer.new()
+	tech_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	tech_vbox.add_child(tech_hsplit)
+	
+	_technique_list = ItemList.new()
+	_technique_list.custom_minimum_size = Vector2(250, 0)
+	_technique_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_technique_list.item_selected.connect(_on_technique_item_selected)
+	tech_hsplit.add_child(_technique_list)
+	
+	var tech_right_vbox := VBoxContainer.new()
+	tech_right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tech_right_vbox.size_flags_stretch_ratio = 2.0
+	tech_hsplit.add_child(tech_right_vbox)
+	
+	_technique_detail_label = RichTextLabel.new()
+	_technique_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_technique_detail_label.bbcode_enabled = true
+	_technique_detail_label.text = "请选择左侧功法查看详情。"
+	tech_right_vbox.add_child(_technique_detail_label)
+	
+	var tech_action_hbox := HBoxContainer.new()
+	tech_action_hbox.add_theme_constant_override("separation", 8)
+	tech_right_vbox.add_child(tech_action_hbox)
+	
+	_technique_slot_option = OptionButton.new()
+	_technique_slot_option.add_item("martial_1")
+	_technique_slot_option.add_item("martial_2")
+	_technique_slot_option.add_item("utility_1")
+	tech_action_hbox.add_child(_technique_slot_option)
+	
+	_technique_equip_btn = Button.new()
+	_technique_equip_btn.text = "装备"
+	_technique_equip_btn.disabled = true
+	_technique_equip_btn.pressed.connect(_on_technique_equip_pressed)
+	tech_action_hbox.add_child(_technique_equip_btn)
+	
+	_technique_meditate_btn = Button.new()
+	_technique_meditate_btn.text = "参悟"
+	_technique_meditate_btn.disabled = true
+	_technique_meditate_btn.pressed.connect(_on_technique_meditate_pressed)
+	tech_action_hbox.add_child(_technique_meditate_btn)
+	
+	_right_content_panel.add_child(_technique_panel)
+
+	# Trade Content Panel
+	_trade_panel = PanelContainer.new()
+	_trade_panel.name = "TradeContentPanel"
+	_trade_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_trade_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_trade_panel.clip_contents = true
+	_trade_panel.hide()
+
+	var trade_vbox := VBoxContainer.new()
+	_trade_panel.add_child(trade_vbox)
+
+	_trade_spirit_stone_label = Label.new()
+	_trade_spirit_stone_label.text = "灵石: 0"
+	_trade_spirit_stone_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	trade_vbox.add_child(_trade_spirit_stone_label)
+
+	var trade_hsplit := HSplitContainer.new()
+	trade_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	trade_vbox.add_child(trade_hsplit)
+
+	_trade_goods_list = ItemList.new()
+	_trade_goods_list.custom_minimum_size = Vector2(250, 0)
+	_trade_goods_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_trade_goods_list.item_selected.connect(_on_trade_item_selected)
+	trade_hsplit.add_child(_trade_goods_list)
+
+	var trade_right_vbox := VBoxContainer.new()
+	trade_right_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	trade_right_vbox.size_flags_stretch_ratio = 2.0
+	trade_hsplit.add_child(trade_right_vbox)
+
+	_trade_detail_label = RichTextLabel.new()
+	_trade_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_trade_detail_label.bbcode_enabled = true
+	_trade_detail_label.text = "请选择左侧物品查看详情。"
+	trade_right_vbox.add_child(_trade_detail_label)
+
+	var trade_action_hbox := HBoxContainer.new()
+	trade_action_hbox.add_theme_constant_override("separation", 8)
+	trade_right_vbox.add_child(trade_action_hbox)
+
+	_trade_buy_btn = Button.new()
+	_trade_buy_btn.text = "买入"
+	_trade_buy_btn.disabled = true
+	_trade_buy_btn.pressed.connect(_on_trade_buy_pressed)
+	trade_action_hbox.add_child(_trade_buy_btn)
+
+	_trade_sell_btn = Button.new()
+	_trade_sell_btn.text = "卖出"
+	_trade_sell_btn.disabled = true
+	_trade_sell_btn.pressed.connect(_on_trade_sell_pressed)
+	trade_action_hbox.add_child(_trade_sell_btn)
+
+	_right_content_panel.add_child(_trade_panel)
+
+	# Combat Popup Panel (overlay, not a tab)
+	_combat_panel = PanelContainer.new()
+	_combat_panel.name = "CombatPopupPanel"
+	_combat_panel.set_anchors_preset(Control.PRESET_CENTER)
+	_combat_panel.custom_minimum_size = Vector2(600, 500)
+	_combat_panel.hide()
+
+	var combat_style := StyleBoxFlat.new()
+	combat_style.bg_color = Color(0.1, 0.1, 0.2, 0.95)
+	_combat_panel.add_theme_stylebox_override("panel", combat_style)
+
+	var combat_vbox := VBoxContainer.new()
+	_combat_panel.add_child(combat_vbox)
+
+	var combat_title := Label.new()
+	combat_title.text = "- 战斗 -"
+	combat_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	combat_vbox.add_child(combat_title)
+
+	# Player HP
+	var player_hp_hbox := HBoxContainer.new()
+	combat_vbox.add_child(player_hp_hbox)
+
+	var player_hp_name := Label.new()
+	player_hp_name.text = "玩家: "
+	player_hp_hbox.add_child(player_hp_name)
+
+	_combat_player_hp_bar = ProgressBar.new()
+	_combat_player_hp_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_combat_player_hp_bar.max_value = 100
+	_combat_player_hp_bar.value = 100
+	player_hp_hbox.add_child(_combat_player_hp_bar)
+
+	_combat_player_hp_label = Label.new()
+	_combat_player_hp_label.text = "100/100"
+	player_hp_hbox.add_child(_combat_player_hp_label)
+
+	# Enemy HP
+	var enemy_hp_hbox := HBoxContainer.new()
+	combat_vbox.add_child(enemy_hp_hbox)
+
+	var enemy_hp_name := Label.new()
+	enemy_hp_name.text = "敌人: "
+	enemy_hp_hbox.add_child(enemy_hp_name)
+
+	_combat_enemy_hp_bar = ProgressBar.new()
+	_combat_enemy_hp_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_combat_enemy_hp_bar.max_value = 100
+	_combat_enemy_hp_bar.value = 100
+	enemy_hp_hbox.add_child(_combat_enemy_hp_bar)
+
+	_combat_enemy_hp_label = Label.new()
+	_combat_enemy_hp_label.text = "100/100"
+	enemy_hp_hbox.add_child(_combat_enemy_hp_label)
+
+	# Combat log
+	_combat_log_label = RichTextLabel.new()
+	_combat_log_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_combat_log_label.bbcode_enabled = true
+	combat_vbox.add_child(_combat_log_label)
+
+	# Action buttons
+	var combat_action_hbox := HBoxContainer.new()
+	combat_action_hbox.add_theme_constant_override("separation", 12)
+	combat_action_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	combat_vbox.add_child(combat_action_hbox)
+
+	_combat_attack_btn = Button.new()
+	_combat_attack_btn.text = "攻击"
+	_combat_attack_btn.pressed.connect(func(): RunState.submit_player_combat_action({"action_type": "attack"}))
+	combat_action_hbox.add_child(_combat_attack_btn)
+
+	_combat_item_btn = Button.new()
+	_combat_item_btn.text = "使用物品"
+	_combat_item_btn.pressed.connect(func(): RunState.submit_player_combat_action({"action_type": "use_item", "item_id": ""}))
+	combat_action_hbox.add_child(_combat_item_btn)
+
+	_combat_flee_btn = Button.new()
+	_combat_flee_btn.text = "逃跑"
+	_combat_flee_btn.pressed.connect(func(): RunState.submit_player_combat_action({"action_type": "flee"}))
+	combat_action_hbox.add_child(_combat_flee_btn)
+
+	# Result label
+	_combat_result_label = RichTextLabel.new()
+	_combat_result_label.custom_minimum_size = Vector2(0, 60)
+	_combat_result_label.bbcode_enabled = true
+	combat_vbox.add_child(_combat_result_label)
+
+	_game_ui_container.add_child(_combat_panel)
+
 	
 	_active_tab = "log"
 	_update_tab_highlight()
+
+	if RunState:
+		if not RunState.sub_phase_changed.is_connected(_on_combat_sub_phase_changed):
+			RunState.sub_phase_changed.connect(_on_combat_sub_phase_changed)
+		if not RunState.combat_context_changed.is_connected(_refresh_combat_panel):
+			RunState.combat_context_changed.connect(_refresh_combat_panel)
+		if not RunState.combat_result_changed.is_connected(_refresh_combat_panel):
+			RunState.combat_result_changed.connect(_refresh_combat_panel)
+
 	_update_right_content_visibility()
 
 
@@ -620,6 +1023,14 @@ func _on_tab_button_pressed(tab_name: String) -> void:
 		_refresh_world_characters()
 	elif _active_tab == "favor":
 		_refresh_favor_panel()
+	elif _active_tab == "inventory":
+		_refresh_inventory_panel()
+	elif _active_tab == "crafting":
+		_refresh_crafting_panel()
+	elif _active_tab == "technique":
+		_refresh_technique_panel()
+	elif _active_tab == "trade":
+		_refresh_trade_panel()
 
 func _on_sort_favor_pressed() -> void:
 	_favor_sort_mode = "favor"
@@ -728,6 +1139,534 @@ func _refresh_favor_panel() -> void:
 			favor_lbl.modulate = Color(0.7, 0.7, 0.7)
 		hbox.add_child(favor_lbl)
 
+func _refresh_inventory_panel() -> void:
+	if _inventory_item_list == null or _inventory_detail_label == null or _inventory_equipment_label == null or _inventory_stats_label == null:
+		return
+
+	_inventory_selected_record = {}
+	_inventory_entries.clear()
+	_inventory_item_defs.clear()
+	_inventory_item_list.clear()
+	_inventory_detail_label.text = "请选择左侧物品查看详情。"
+	_inventory_equipment_label.text = "[b]- 已装备槽位 -[/b]\n暂无"
+	_inventory_stats_label.text = "[b]- 属性总览 -[/b]\n暂无"
+	_update_inventory_action_buttons({})
+
+	var player_id: String = _resolve_player_character_id()
+	if player_id.is_empty():
+		_inventory_detail_label.text = "暂无玩家角色。"
+		return
+
+	var inventory_service: Node = _inventory_service_node()
+	if inventory_service == null or not inventory_service.has_method("get_inventory"):
+		_inventory_detail_label.text = "背包服务不可用。"
+		return
+
+	var catalog: Resource = _resolve_inventory_catalog()
+	var inv_raw: Variant = inventory_service.get_inventory(player_id)
+	if not (inv_raw is Array):
+		_inventory_detail_label.text = "背包数据读取失败。"
+		return
+
+	var inv_array: Array = inv_raw as Array
+	for record_raw in inv_array:
+		if not (record_raw is Dictionary):
+			continue
+		var record: Dictionary = (record_raw as Dictionary).duplicate(true)
+		_inventory_entries.append(record)
+
+		var item_id := str(record.get("item_id", ""))
+		var item_def: Resource = null
+		if catalog != null and catalog.has_method("find_item"):
+			item_def = catalog.find_item(StringName(item_id))
+		if item_def != null:
+			_inventory_item_defs[item_id] = item_def
+
+		var item_name := _inventory_display_name(item_id, item_def)
+		var quantity: int = int(record.get("quantity", 1))
+		if quantity < 1:
+			quantity = 1
+		var rarity := str(record.get("rarity", "common"))
+		var equipped_slot := str(record.get("equipped_slot", ""))
+
+		var line := "%s x%d" % [item_name, quantity]
+		if not equipped_slot.is_empty():
+			line += "  [装备:%s]" % _inventory_slot_name(equipped_slot)
+
+		var idx := _inventory_item_list.add_item(line)
+		_inventory_item_list.set_item_metadata(idx, record)
+		_inventory_item_list.set_item_custom_fg_color(idx, _inventory_rarity_color(rarity))
+
+	if _inventory_entries.is_empty():
+		_inventory_detail_label.text = "背包为空。可通过探索、战斗、交易或制作获取物品。"
+	else:
+		_inventory_item_list.select(0)
+		_on_inventory_item_selected(0)
+
+	_inventory_equipment_label.text = _build_inventory_equipment_text(_inventory_entries)
+
+	var equipped_stats: Dictionary = {}
+	if inventory_service.has_method("get_equipped_stats"):
+		var stats_raw: Variant = inventory_service.get_equipped_stats(player_id)
+		if stats_raw is Dictionary:
+			equipped_stats = (stats_raw as Dictionary).duplicate(true)
+
+	var player_runtime: Dictionary = _resolve_player_runtime_character(player_id)
+	_inventory_stats_label.text = _build_inventory_stats_text(player_runtime, equipped_stats)
+
+
+func _on_inventory_item_selected(index: int) -> void:
+	if _inventory_item_list == null or _inventory_detail_label == null:
+		return
+	if index < 0 or index >= _inventory_item_list.item_count:
+		return
+
+	var metadata: Variant = _inventory_item_list.get_item_metadata(index)
+	if not (metadata is Dictionary):
+		_inventory_selected_record = {}
+		_update_inventory_action_buttons({})
+		_inventory_detail_label.text = "物品数据无效。"
+		return
+
+	var record: Dictionary = (metadata as Dictionary).duplicate(true)
+	_inventory_selected_record = record.duplicate(true)
+	var item_id := str(record.get("item_id", ""))
+	var item_def: Resource = null
+	if _inventory_item_defs.has(item_id):
+		var def_raw: Variant = _inventory_item_defs.get(item_id)
+		if def_raw is Resource:
+			item_def = def_raw as Resource
+	_update_inventory_action_buttons(record)
+
+	var item_name := _inventory_display_name(item_id, item_def)
+	var rarity := str(record.get("rarity", "common"))
+	var quantity := int(record.get("quantity", 0))
+	var equipped_slot := str(record.get("equipped_slot", ""))
+
+	var text := "[b]%s[/b]\n" % item_name
+	text += "ID: %s\n" % item_id
+	text += "品质: [color=%s]%s[/color]\n" % [_inventory_rarity_bbcode_color(rarity), _inventory_rarity_label(rarity)]
+	text += "数量: %d\n" % quantity
+	if not equipped_slot.is_empty():
+		text += "装备槽位: %s\n" % _inventory_slot_name(equipped_slot)
+	else:
+		text += "装备槽位: 未装备\n"
+
+	if item_def != null:
+		var item_type := str(_resource_get_or(item_def, "item_type", "unknown"))
+		var element := str(_resource_get_or(item_def, "element", "neutral"))
+		var base_value := int(_resource_get_or(item_def, "base_value", 0))
+		var required_realm := int(_resource_get_or(item_def, "required_realm", 0))
+		text += "类型: %s\n" % item_type
+		text += "元素: %s\n" % element
+		text += "基础价值: %d\n" % base_value
+		text += "需求境界: %d\n" % required_realm
+
+		var summary := str(_resource_get_or(item_def, "summary", ""))
+		if not summary.is_empty():
+			text += "\n%s\n" % summary
+
+		var stat_modifiers_raw: Variant = _resource_get_or(item_def, "stat_modifiers", {})
+		if stat_modifiers_raw is Dictionary and not (stat_modifiers_raw as Dictionary).is_empty():
+			text += "\n[b]- 基础属性加成 -[/b]\n"
+			var stat_modifiers: Dictionary = stat_modifiers_raw as Dictionary
+			for key_variant in stat_modifiers.keys():
+				var stat_key := str(key_variant)
+				text += "%s: %+d\n" % [_inventory_stat_name(stat_key), int(stat_modifiers[stat_key])]
+
+		var consumable_effect_raw: Variant = _resource_get_or(item_def, "consumable_effect", {})
+		if consumable_effect_raw is Dictionary and not (consumable_effect_raw as Dictionary).is_empty():
+			text += "\n[b]- 消耗效果 -[/b]\n"
+			var consumable_effect: Dictionary = consumable_effect_raw as Dictionary
+			for key_variant in consumable_effect.keys():
+				text += "%s: %s\n" % [str(key_variant), str(consumable_effect[key_variant])]
+
+	var affixes_raw: Variant = record.get("affixes", [])
+	if affixes_raw is Array and not (affixes_raw as Array).is_empty():
+		text += "\n[b]- 已实例化词条 -[/b]\n"
+		var affixes: Array = affixes_raw as Array
+		for affix_raw in affixes:
+			if not (affix_raw is Dictionary):
+				continue
+			var affix: Dictionary = affix_raw as Dictionary
+			var affix_name := str(affix.get("affix_name", affix.get("affix_id", "词条")))
+			text += "- %s" % affix_name
+			var effect_raw: Variant = affix.get("effect", {})
+			if effect_raw is Dictionary and not (effect_raw as Dictionary).is_empty():
+				var effect_parts: Array[String] = []
+				var effect_dict: Dictionary = effect_raw as Dictionary
+				for k in effect_dict.keys():
+					effect_parts.append("%s:%s" % [str(k), str(effect_dict[k])])
+				text += " (%s)" % ", ".join(effect_parts)
+			text += "\n"
+
+	_inventory_detail_label.text = text
+
+
+func _update_inventory_action_buttons(record: Dictionary) -> void:
+	if _inventory_equip_btn == null or _inventory_use_btn == null or _inventory_drop_btn == null:
+		return
+
+	_inventory_equip_btn.disabled = true
+	_inventory_use_btn.disabled = true
+	_inventory_drop_btn.disabled = true
+	_inventory_equip_btn.text = "装备"
+
+	if record.is_empty():
+		return
+
+	var inventory_service: Node = _inventory_service_node()
+	if inventory_service == null:
+		return
+
+	var item_id := str(record.get("item_id", "")).strip_edges()
+	if item_id.is_empty():
+		return
+
+	var quantity := int(record.get("quantity", 0))
+	var equipped_slot := str(record.get("equipped_slot", "")).strip_edges()
+	var item_def := _resolve_inventory_item_def(item_id)
+	var item_type := str(_resource_get_or(item_def, "item_type", "")).strip_edges()
+	var equip_slot := str(_resource_get_or(item_def, "equip_slot", "")).strip_edges()
+
+	if not equipped_slot.is_empty() and inventory_service.has_method("unequip_item"):
+		_inventory_equip_btn.text = "卸下"
+		_inventory_equip_btn.disabled = false
+	elif not equip_slot.is_empty() and quantity > 0 and inventory_service.has_method("equip_item"):
+		_inventory_equip_btn.text = "装备"
+		_inventory_equip_btn.disabled = false
+
+	if item_type == "consumable" and quantity > 0 and equipped_slot.is_empty() and inventory_service.has_method("use_consumable"):
+		_inventory_use_btn.disabled = false
+
+	if quantity > 0 and equipped_slot.is_empty() and inventory_service.has_method("remove_item"):
+		_inventory_drop_btn.disabled = false
+
+
+func _resolve_inventory_item_def(item_id: String) -> Resource:
+	if item_id.is_empty():
+		return null
+	if _inventory_item_defs.has(item_id):
+		var def_raw: Variant = _inventory_item_defs.get(item_id)
+		if def_raw is Resource:
+			return def_raw as Resource
+	var catalog: Resource = _resolve_inventory_catalog()
+	if catalog != null and catalog.has_method("find_item"):
+		return catalog.find_item(StringName(item_id))
+	return null
+
+
+func _on_inventory_equip_pressed() -> void:
+	if _inventory_selected_record.is_empty():
+		return
+	var inventory_service: Node = _inventory_service_node()
+	if inventory_service == null:
+		return
+	var player_id: String = _resolve_player_character_id()
+	if player_id.is_empty():
+		return
+
+	var item_id := str(_inventory_selected_record.get("item_id", "")).strip_edges()
+	if item_id.is_empty():
+		return
+	var equipped_slot := str(_inventory_selected_record.get("equipped_slot", "")).strip_edges()
+	var action_ok := false
+
+	if not equipped_slot.is_empty() and inventory_service.has_method("unequip_item"):
+		action_ok = bool(inventory_service.unequip_item(player_id, equipped_slot))
+	else:
+		var item_def := _resolve_inventory_item_def(item_id)
+		var target_slot := str(_resource_get_or(item_def, "equip_slot", "")).strip_edges()
+		if target_slot.is_empty() or not inventory_service.has_method("equip_item"):
+			return
+		action_ok = bool(inventory_service.equip_item(player_id, item_id, target_slot))
+
+	if action_ok:
+		_refresh_inventory_panel()
+
+
+func _on_inventory_use_pressed() -> void:
+	if _inventory_selected_record.is_empty():
+		return
+	var inventory_service: Node = _inventory_service_node()
+	if inventory_service == null or not inventory_service.has_method("use_consumable"):
+		return
+	var player_id: String = _resolve_player_character_id()
+	if player_id.is_empty():
+		return
+
+	var item_id := str(_inventory_selected_record.get("item_id", "")).strip_edges()
+	if item_id.is_empty():
+		return
+	var use_result: Variant = inventory_service.use_consumable(player_id, item_id)
+	if use_result is Dictionary:
+		_refresh_inventory_panel()
+
+
+func _on_inventory_drop_pressed() -> void:
+	if _inventory_selected_record.is_empty():
+		return
+	var inventory_service: Node = _inventory_service_node()
+	if inventory_service == null or not inventory_service.has_method("remove_item"):
+		return
+	var player_id: String = _resolve_player_character_id()
+	if player_id.is_empty():
+		return
+
+	var item_id := str(_inventory_selected_record.get("item_id", "")).strip_edges()
+	if item_id.is_empty():
+		return
+	var remove_ok := bool(inventory_service.remove_item(player_id, item_id, 1))
+	if remove_ok:
+		_refresh_inventory_panel()
+
+
+func _resolve_player_character_id() -> String:
+	if _sim_runner == null or not _sim_runner.has_method("get_runtime_characters"):
+		return ""
+	var chars_raw: Variant = _sim_runner.get_runtime_characters()
+	if not (chars_raw is Array):
+		return ""
+	var chars: Array = chars_raw as Array
+	if chars.is_empty() or not (chars[0] is Dictionary):
+		return ""
+	return str((chars[0] as Dictionary).get("id", "")).strip_edges()
+
+
+func _resolve_player_runtime_character(player_id: String) -> Dictionary:
+	if player_id.is_empty() or _sim_runner == null or not _sim_runner.has_method("get_runtime_characters"):
+		return {}
+	var chars_raw: Variant = _sim_runner.get_runtime_characters()
+	if not (chars_raw is Array):
+		return {}
+	var chars: Array = chars_raw as Array
+	for char_raw in chars:
+		if not (char_raw is Dictionary):
+			continue
+		var character: Dictionary = char_raw as Dictionary
+		if str(character.get("id", "")) == player_id:
+			return character
+	return {}
+
+
+func _inventory_service_node() -> Node:
+	var main_loop: MainLoop = Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var tree: SceneTree = main_loop as SceneTree
+		if tree.root != null:
+			return tree.root.get_node_or_null("InventoryService")
+	return null
+
+
+func _resolve_inventory_catalog() -> Resource:
+	if _sim_runner == null or not _sim_runner.has_method("get_catalog_path"):
+		return null
+	var catalog_path := str(_sim_runner.get_catalog_path())
+	if catalog_path.is_empty():
+		return null
+	if _inventory_catalog != null and _inventory_catalog.resource_path == catalog_path:
+		return _inventory_catalog
+	_inventory_catalog = load(catalog_path) as Resource
+	return _inventory_catalog
+
+
+func _build_inventory_equipment_text(entries: Array[Dictionary]) -> String:
+	var equipped_by_slot: Dictionary = {}
+	for record in entries:
+		var slot := str(record.get("equipped_slot", "")).strip_edges()
+		if slot.is_empty():
+			continue
+		equipped_by_slot[slot] = record
+
+	var slot_order: Array[String] = [
+		"weapon",
+		"head",
+		"body",
+		"accessory_1",
+		"accessory_2",
+	]
+
+	var text := "[b]- 已装备槽位 -[/b]\n"
+	for slot in slot_order:
+		if not equipped_by_slot.has(slot):
+			text += "%s: [color=gray]空[/color]\n" % _inventory_slot_name(slot)
+			continue
+		var record: Dictionary = equipped_by_slot[slot] as Dictionary
+		var item_id := str(record.get("item_id", ""))
+		var item_def: Resource = null
+		if _inventory_item_defs.has(item_id):
+			var def_raw: Variant = _inventory_item_defs.get(item_id)
+			if def_raw is Resource:
+				item_def = def_raw as Resource
+		var item_name := _inventory_display_name(item_id, item_def)
+		var rarity := str(record.get("rarity", "common"))
+		text += "%s: [color=%s]%s[/color]\n" % [_inventory_slot_name(slot), _inventory_rarity_bbcode_color(rarity), item_name]
+	return text
+
+
+func _build_inventory_stats_text(player_runtime: Dictionary, equipped_stats: Dictionary) -> String:
+	var text := "[b]- 属性总览 -[/b]\n"
+
+	var fallback_stats: Dictionary = {
+		"max_hp": 100,
+		"attack": 10,
+		"defense": 5,
+		"speed": 10,
+	}
+	var base_stats: Dictionary = fallback_stats.duplicate(true)
+	var final_stats: Dictionary = fallback_stats.duplicate(true)
+	var base_raw: Variant = player_runtime.get("combat_stats_base", player_runtime.get("combat_stats", fallback_stats))
+	if base_raw is Dictionary:
+		base_stats = (base_raw as Dictionary).duplicate(true)
+	var final_raw: Variant = player_runtime.get("combat_stats", fallback_stats)
+	if final_raw is Dictionary:
+		final_stats = (final_raw as Dictionary).duplicate(true)
+
+	var core_stats: Array[String] = ["max_hp", "attack", "defense", "speed"]
+	for stat_key in core_stats:
+		var base_val := int(base_stats.get(stat_key, 0))
+		var final_val := int(final_stats.get(stat_key, base_val))
+		var equip_bonus_val := int(equipped_stats.get(stat_key, final_val - base_val))
+		text += "%s: %d" % [_inventory_stat_name(stat_key), final_val]
+		if base_stats.has(stat_key) or final_stats.has(stat_key):
+			text += " (基础 %d" % base_val
+			if equip_bonus_val != 0:
+				text += ", 装备 %+d" % equip_bonus_val
+			text += ")"
+		text += "\n"
+
+	var extra_lines: Array[String] = []
+	for stat_key_variant in equipped_stats.keys():
+		var stat_key := str(stat_key_variant)
+		if stat_key in core_stats:
+			continue
+		extra_lines.append("%s %+d" % [_inventory_stat_name(stat_key), int(equipped_stats[stat_key_variant])])
+
+	if not extra_lines.is_empty():
+		text += "\n[b]- 额外装备加成 -[/b]\n"
+		for line in extra_lines:
+			text += "%s\n" % line
+
+	return text
+
+
+func _inventory_display_name(item_id: String, item_def: Resource) -> String:
+	if item_def != null:
+		var name_raw: Variant = item_def.get("display_name")
+		if name_raw != null:
+			var resolved := str(name_raw).strip_edges()
+			if not resolved.is_empty():
+				return resolved
+	return item_id
+
+
+func _inventory_slot_name(slot: String) -> String:
+	match slot:
+		"weapon":
+			return "武器"
+		"head":
+			return "头部"
+		"body":
+			return "躯干"
+		"accessory_1":
+			return "饰品一"
+		"accessory_2":
+			return "饰品二"
+		_:
+			return slot
+
+
+func _inventory_stat_name(stat_key: String) -> String:
+	match stat_key:
+		"max_hp":
+			return "最大生命"
+		"attack":
+			return "攻击"
+		"defense":
+			return "防御"
+		"speed":
+			return "速度"
+		_:
+			return stat_key
+
+
+func _inventory_rarity_label(rarity: String) -> String:
+	match rarity:
+		"common":
+			return "凡品"
+		"uncommon":
+			return "良品"
+		"rare":
+			return "珍品"
+		"epic":
+			return "极品"
+		"legendary":
+			return "传说"
+		"mythic":
+			return "神话"
+		_:
+			return rarity
+
+
+func _inventory_rarity_color(rarity: String) -> Color:
+	match rarity:
+		"common":
+			return Color(0.8, 0.8, 0.8)
+		"uncommon":
+			return Color(0.3, 0.9, 0.3)
+		"rare":
+			return Color(0.3, 0.5, 1.0)
+		"epic":
+			return Color(0.7, 0.3, 0.9)
+		"legendary":
+			return Color(1.0, 0.6, 0.1)
+		"mythic":
+			return Color(1.0, 0.2, 0.2)
+		_:
+			return Color(0.8, 0.8, 0.8)
+
+
+func _inventory_rarity_bbcode_color(rarity: String) -> String:
+	match rarity:
+		"common":
+			return "#cccccc"
+		"uncommon":
+			return "#4de64d"
+		"rare":
+			return "#4d80ff"
+		"epic":
+			return "#b34de6"
+		"legendary":
+			return "#ff9a1a"
+		"mythic":
+			return "#ff3333"
+		_:
+			return "#cccccc"
+
+
+func _resource_get_or(resource: Resource, property_name: String, fallback: Variant) -> Variant:
+	if resource == null:
+		return fallback
+	var value: Variant = resource.get(property_name)
+	if value == null:
+		return fallback
+	return value
+
+
+func _should_refresh_inventory_from_entry(entry: Dictionary) -> bool:
+	if entry.is_empty():
+		return false
+	var category := str(entry.get("category", ""))
+	if category == "inventory":
+		return true
+	var title := str(entry.get("title", ""))
+	if title.begins_with("ITEM_"):
+		return true
+	var cause := str(entry.get("direct_cause", ""))
+	if cause.begins_with("ITEM_"):
+		return true
+	return false
+
 func _update_tab_highlight() -> void:
 	for tab_name in _tab_buttons:
 		var btn: Button = _tab_buttons[tab_name]
@@ -747,6 +1686,12 @@ func _update_right_content_visibility() -> void:
 		_favor_panel.visible = (_active_tab == "favor")
 	if _inventory_panel:
 		_inventory_panel.visible = (_active_tab == "inventory")
+	if _crafting_panel:
+		_crafting_panel.visible = (_active_tab == "crafting")
+	if _technique_panel:
+		_technique_panel.visible = (_active_tab == "technique")
+	if _trade_panel:
+		_trade_panel.visible = (_active_tab == "trade")
 
 func _refresh_text() -> void:
 	if _status_label == null:
@@ -946,6 +1891,8 @@ func _refresh_log() -> void:
 func _on_log_entry_added(_entry: Dictionary) -> void:
 	_refresh_text()
 	_refresh_log()
+	if _should_refresh_inventory_from_entry(_entry):
+		_refresh_inventory_panel()
 
 
 func _on_time_advanced(_total_minutes: int) -> void:
@@ -954,20 +1901,32 @@ func _on_time_advanced(_total_minutes: int) -> void:
 
 func _on_save_pressed() -> void:
 	if SaveService == null:
-		EventLog.add_entry("保存失败：SaveService 不可用")
+		if EventLog != null and EventLog.has_method("add_entry"):
+			EventLog.add_entry("保存失败：SaveService 不可用")
+		else:
+			push_warning("保存失败：SaveService 不可用")
 		return
 	if _sim_runner == null or not _sim_runner.has_method("get_snapshot"):
-		EventLog.add_entry("保存失败：SimulationRunner 不可用")
+		if EventLog != null and EventLog.has_method("add_entry"):
+			EventLog.add_entry("保存失败：SimulationRunner 不可用")
+		else:
+			push_warning("保存失败：SimulationRunner 不可用")
 		return
 	var snapshot: Dictionary = _sim_runner.get_snapshot()
-	var save_ok: bool = SaveService.save_game(snapshot)
+	var save_ok: bool = SaveService.save_game({"simulation_snapshot": snapshot})
 	if save_ok:
-		EventLog.add_entry("保存成功")
+		if EventLog != null and EventLog.has_method("add_entry"):
+			EventLog.add_entry("保存成功")
+		else:
+			push_warning("保存成功")
 	else:
 		var save_error := "unknown"
 		if SaveService.has_method("get_last_error"):
 			save_error = str(SaveService.get_last_error())
-		EventLog.add_entry("保存失败：%s" % save_error)
+		if EventLog != null and EventLog.has_method("add_entry"):
+			EventLog.add_entry("保存失败：%s" % save_error)
+		else:
+			push_warning("保存失败：%s" % save_error)
 
 
 func _refresh_main_menu_continue_button() -> void:
@@ -1529,6 +2488,32 @@ func _on_view_map_pressed() -> void:
 	_refresh_map()
 
 
+
+func _update_region_tree_item_display(rid: String, item: TreeItem, display_name: String) -> void:
+	if _sim_runner == null:
+		item.set_text(0, display_name)
+		return
+	
+	var dynamic_state: Dictionary = {}
+	if _sim_runner.has_method("get_region_dynamic_state"):
+		dynamic_state = _sim_runner.get_region_dynamic_state(rid)
+		
+	if dynamic_state.is_empty():
+		item.set_text(0, display_name)
+		return
+		
+	var faction_id: String = dynamic_state.get("controlling_faction_id", "")
+	if not faction_id.is_empty():
+		var h: float = float(faction_id.hash() % 1000) / 1000.0
+		var faction_color := Color.from_hsv(h, 0.6, 0.9)
+		item.set_custom_color(0, faction_color)
+		
+	var danger_level: int = dynamic_state.get("danger_level", 0)
+	if danger_level > 0:
+		item.set_text(0, "%s [危%d]" % [display_name, danger_level])
+	else:
+		item.set_text(0, display_name)
+
 func _refresh_map() -> void:
 	_region_tree.clear()
 	_map_region_items.clear()
@@ -1558,8 +2543,8 @@ func _refresh_map() -> void:
 					continue
 			
 			var item: TreeItem = _region_tree.create_item(parent_item)
-			item.set_text(0, str(r.get("display_name", rid)))
 			item.set_metadata(0, rid)
+			_update_region_tree_item_display(rid, item, str(r.get("display_name", rid)))
 			_map_region_items[rid] = item
 			assigned_ids[rid] = true
 			
@@ -1571,8 +2556,8 @@ func _refresh_map() -> void:
 	for r in unassigned_regions:
 		var rid := str(r.get("id", ""))
 		var item: TreeItem = _region_tree.create_item(root)
-		item.set_text(0, str(r.get("display_name", rid)) + " (未连接)")
 		item.set_metadata(0, rid)
+		_update_region_tree_item_display(rid, item, str(r.get("display_name", rid)) + " (未连接)")
 		_map_region_items[rid] = item
 		
 	_region_detail_label.text = "请在左侧选择一个区域以查看情报。"
@@ -1621,6 +2606,46 @@ func _on_region_tree_item_selected() -> void:
 					break
 			text += " - %s (%s)\n" % [adj_name, adj_id]
 			
+	var dynamic_state: Dictionary = {}
+	if _sim_runner != null and _sim_runner.has_method("get_region_dynamic_state"):
+		dynamic_state = _sim_runner.get_region_dynamic_state(rid)
+
+	if not dynamic_state.is_empty():
+		text += "
+
+[b]动态情报:[/b]
+"
+		
+		var faction_id: String = dynamic_state.get("controlling_faction_id", "")
+		if not faction_id.is_empty():
+			var h: float = float(faction_id.hash() % 1000) / 1000.0
+			var faction_color := Color.from_hsv(h, 0.6, 0.9)
+			text += "控制势力: [color=#%s]%s[/color]
+" % [faction_color.to_html(false), faction_id]
+		else:
+			text += "控制势力: 无
+"
+			
+		var danger_level: int = dynamic_state.get("danger_level", 0)
+		var danger_color := "green"
+		if danger_level >= 4:
+			danger_color = "red"
+		elif danger_level >= 1:
+			danger_color = "yellow"
+		text += "危险等级: [color=%s]%d[/color]
+" % [danger_color, danger_level]
+			
+		var stockpiles: Dictionary = dynamic_state.get("resource_stockpiles", {})
+		if stockpiles.is_empty():
+			text += "资源产出: 无
+"
+		else:
+			text += "资源产出:
+"
+			for res_id in stockpiles:
+				var res_qty: int = stockpiles[res_id]
+				text += "  - %s: %d
+" % [res_id, res_qty]
 	_region_detail_label.text = text
 	
 	_region_characters_list.clear()
@@ -1632,3 +2657,580 @@ func _on_region_tree_item_selected() -> void:
 			var char_id := str(c.get("id", ""))
 			var idx := _region_characters_list.add_item("%s (%s)" % [c_name, role])
 			_region_characters_list.set_item_metadata(idx, char_id)
+
+
+# --- Crafting UI ---
+
+func _refresh_crafting_panel() -> void:
+	if _crafting_recipe_list == null:
+		return
+		
+	_current_recipes.clear()
+	_crafting_recipe_list.clear()
+	_crafting_selected_recipe = null
+	if _crafting_btn != null:
+		_crafting_btn.disabled = true
+	if _crafting_detail_label != null:
+		_crafting_detail_label.text = "请在左侧选择配方。"
+	
+	if _sim_runner == null or not _sim_runner.has_method("get_catalog_path"):
+		if _crafting_detail_label != null:
+			_crafting_detail_label.text = "模拟运行器不可用。"
+		return
+		
+	var catalog_path: String = _sim_runner.get_catalog_path()
+	var catalog: Resource = load(catalog_path) as Resource
+	if catalog == null:
+		if _crafting_detail_label != null:
+			_crafting_detail_label.text = "数据目录不可用。"
+		return
+		
+	var all_recipes: Array = []
+	if catalog.has_method("get_crafting_recipes"):
+		var crafting_recipes: Variant = catalog.get_crafting_recipes()
+		if crafting_recipes is Array:
+			all_recipes = crafting_recipes
+	if all_recipes.is_empty():
+		var recipes_variant: Variant = catalog.get("recipes")
+		if recipes_variant is Array:
+			all_recipes = recipes_variant
+	if all_recipes.is_empty():
+		return
+		
+	var filter_idx := _crafting_type_filter.get_selected_id()
+	var type_filter := str(_crafting_type_filter.get_item_metadata(filter_idx))
+	
+	for r_raw in all_recipes:
+		if not (r_raw is Resource):
+			continue
+		var r: Resource = r_raw as Resource
+		
+		var r_type_val: Variant = r.get("recipe_type")
+		var r_type := str(r_type_val) if r_type_val != null else ""
+		
+		if type_filter != "all" and r_type != type_filter:
+			continue
+			
+		_current_recipes.append(r)
+		
+		var r_name_val: Variant = r.get("display_name")
+		var r_name := str(r_name_val) if r_name_val != null and str(r_name_val) != "" else str(r.get("id"))
+		
+		var type_display := "丹" if r_type == "alchemy" else "器" if r_type == "forge" else "?"
+		var display_text := "[%s] %s" % [type_display, r_name]
+		_crafting_recipe_list.add_item(display_text)
+
+
+func _on_crafting_recipe_selected(index: int) -> void:
+	if index < 0 or index >= _current_recipes.size():
+		return
+		
+	var recipe: Resource = _current_recipes[index]
+	_crafting_selected_recipe = recipe
+	_update_crafting_detail()
+
+
+func _update_crafting_detail() -> void:
+	if _crafting_selected_recipe == null:
+		if _crafting_detail_label != null:
+			_crafting_detail_label.text = "请在左侧选择配方。"
+		if _crafting_btn != null:
+			_crafting_btn.disabled = true
+		return
+		
+	var r: Resource = _crafting_selected_recipe
+	var catalog_path: String = _sim_runner.get_catalog_path()
+	var catalog: Resource = load(catalog_path) as Resource
+	var chars: Array = _sim_runner.get_runtime_characters()
+	
+	if chars.is_empty():
+		if _crafting_detail_label != null:
+			_crafting_detail_label.text = "找不到玩家数据。"
+		if _crafting_btn != null:
+			_crafting_btn.disabled = true
+		return
+		
+	var player_id := str(chars[0].get("id", ""))
+	
+	var r_name_val: Variant = r.get("display_name")
+	var r_name := str(r_name_val) if r_name_val != null and str(r_name_val) != "" else str(r.get("id"))
+	
+	var r_desc_val: Variant = r.get("description")
+	var r_desc := str(r_desc_val) if r_desc_val != null else ""
+	
+	var req_skill_val: Variant = r.get("required_skill_level")
+	var req_skill := int(req_skill_val) if req_skill_val != null else 0
+	
+	var result_item_id_val: Variant = r.get("result_item_id")
+	var result_item_id := str(result_item_id_val) if result_item_id_val != null else ""
+	
+	var result_qty_val: Variant = r.get("result_quantity")
+	var result_qty := int(result_qty_val) if result_qty_val != null else 1
+	
+	var rarity_min_val: Variant = r.get("result_rarity_min")
+	var rarity_min := str(rarity_min_val) if rarity_min_val != null else "common"
+	
+	var base_rate_val: Variant = r.get("success_rate_base")
+	var base_rate := float(base_rate_val) if base_rate_val != null else 0.0
+	
+	var materials: Array = []
+	var raw_mat: Variant = r.get("materials")
+	if raw_mat is Array:
+		materials = raw_mat as Array
+		
+	var result_item_name := result_item_id
+	if catalog.has_method("find_item"):
+		var i_def: Resource = catalog.find_item(StringName(result_item_id))
+		if i_def != null:
+			var d_name_val: Variant = i_def.get("display_name")
+			var d_name := str(d_name_val) if d_name_val != null else ""
+			if d_name != "":
+				result_item_name = d_name
+
+	var text := "[b]%s[/b]\n" % r_name
+	if r_desc != "":
+		text += "%s\n\n" % r_desc
+	else:
+		text += "\n"
+	
+	text += "[b]- 制作产出 -[/b]\n"
+	text += "产物: %s x%d\n" % [result_item_name, result_qty]
+	text += "最低品质: %s\n" % rarity_min
+	text += "基础成功率: %d%%\n\n" % int(base_rate * 100)
+	
+	# Get player inventory to check materials
+	var inventory_service: Node = null
+	var main_loop := Engine.get_main_loop()
+	if main_loop is SceneTree:
+		var st := main_loop as SceneTree
+		if st.root != null:
+			inventory_service = st.root.get_node_or_null("InventoryService")
+			
+	var inv: Array[Dictionary] = []
+	if inventory_service != null and inventory_service.has_method("get_inventory"):
+		var inv_raw: Variant = inventory_service.get_inventory(player_id)
+		if inv_raw is Array:
+			for i in inv_raw:
+				if i is Dictionary:
+					inv.append(i as Dictionary)
+		
+	var all_materials_met := true
+	text += "[b]- 材料需求 -[/b]\n"
+	
+	for m_raw in materials:
+		if not (m_raw is Dictionary): continue
+		var m: Dictionary = m_raw as Dictionary
+		var m_id := str(m.get("item_id", ""))
+		var m_qty := int(m.get("quantity", 0))
+		
+		# Find how many we have
+		var current_qty := 0
+		for inv_item in inv:
+			if str(inv_item.get("item_id", "")) == m_id:
+				current_qty += int(inv_item.get("quantity", 0))
+				
+		var m_name := m_id
+		if catalog.has_method("find_item"):
+			var i_def: Resource = catalog.find_item(StringName(m_id))
+			if i_def != null:
+				var d_name_val: Variant = i_def.get("display_name")
+				var d_name := str(d_name_val) if d_name_val != null else ""
+				if d_name != "":
+					m_name = d_name
+					
+		if current_qty >= m_qty:
+			text += "[color=green]√ %s: %d / %d[/color]\n" % [m_name, current_qty, m_qty]
+		else:
+			all_materials_met = false
+			text += "[color=red]x %s: %d / %d[/color]\n" % [m_name, current_qty, m_qty]
+			
+	if materials.is_empty():
+		text += "无需材料\n"
+		
+	text += "\n"
+	
+	var r_type_val: Variant = r.get("recipe_type")
+	var r_type := str(r_type_val) if r_type_val != null else ""
+	
+	# Check skill level via CraftingService if available
+	var skill_level := 1
+	var crafting_service: Node = null
+	if main_loop is SceneTree:
+		var st := main_loop as SceneTree
+		if st.root != null:
+			crafting_service = st.root.get_node_or_null("CraftingService")
+			
+	if crafting_service != null and crafting_service.has_method("get_character_skill_level"):
+		skill_level = crafting_service.get_character_skill_level(player_id, r_type)
+		
+	if skill_level >= req_skill:
+		text += "[color=green]当前技艺等级: %d (需要: %d)[/color]\n" % [skill_level, req_skill]
+	else:
+		all_materials_met = false
+		text += "[color=red]当前技艺等级: %d (需要: %d)[/color]\n" % [skill_level, req_skill]
+	
+	if _crafting_detail_label != null:
+		_crafting_detail_label.text = text
+	if _crafting_btn != null:
+		_crafting_btn.disabled = not all_materials_met
+
+
+func _on_crafting_btn_pressed() -> void:
+	if _crafting_selected_recipe == null:
+		return
+		
+	var main_loop := Engine.get_main_loop()
+	var crafting_service: Node = null
+	if main_loop is SceneTree:
+		var st := main_loop as SceneTree
+		if st.root != null:
+			crafting_service = st.root.get_node_or_null("CraftingService")
+			
+	if crafting_service == null or not crafting_service.has_method("craft_item"):
+		show_event_modal("制作失败", "找不到制作服务 (CraftingService)。")
+		return
+		
+	var chars: Array = _sim_runner.get_runtime_characters()
+	if chars.is_empty():
+		return
+	var player_id := str(chars[0].get("id", ""))
+	
+	var recipe_id_val: Variant = _crafting_selected_recipe.get("id")
+	var recipe_id := str(recipe_id_val) if recipe_id_val != null else ""
+	if recipe_id == "":
+		return
+		
+	var catalog_path: String = _sim_runner.get_catalog_path()
+	var catalog: Resource = load(catalog_path) as Resource
+	var rng: RefCounted = null
+	
+	var result_raw: Variant = crafting_service.craft_item(player_id, recipe_id, catalog, rng)
+	if not (result_raw is Dictionary):
+		show_event_modal("制作失败", "内部错误：返回值无效。")
+		return
+	var result: Dictionary = result_raw as Dictionary
+	
+	var success := bool(result.get("success", false))
+	var reason := str(result.get("reason", ""))
+	
+	if success:
+		var c_id := str(result.get("crafted_item_id", ""))
+		var c_qty := int(result.get("crafted_quantity", 0))
+		var c_rarity := str(result.get("crafted_rarity", ""))
+		
+		var c_name := c_id
+		if catalog.has_method("find_item"):
+			var i_def: Resource = catalog.find_item(StringName(c_id))
+			if i_def != null:
+				var d_name_val: Variant = i_def.get("display_name")
+				var d_name := str(d_name_val) if d_name_val != null else ""
+				if d_name != "":
+					c_name = d_name
+					
+		show_event_modal("制作成功", "成功制作出 [color=cyan]%s[/color] x%d (品质: %s)。\n最终成功率: %d%%" % [
+			c_name, c_qty, c_rarity,
+			int(float(result.get("success_rate", 0)) * 100)
+		])
+	else:
+		show_event_modal("制作失败", "制作过程中出现失误，部分材料已损毁。\n失败原因: %s" % reason)
+		
+	_update_crafting_detail() # Refresh material counts
+
+
+# --- Technique Panel Logic ---
+func _refresh_technique_panel() -> void:
+	if _technique_list == null or _technique_detail_label == null:
+		return
+
+	_technique_list.clear()
+	_technique_detail_label.text = "请选择左侧功法查看详情。"
+	_technique_equip_btn.disabled = true
+	_technique_meditate_btn.disabled = true
+	_learned_techniques.clear()
+	_technique_selected_id = ""
+	
+	if _sim_runner == null:
+		return
+		
+	var player_id: String = ""
+	if _sim_runner.has_method("get_human_runtime"):
+		var human_rt: Dictionary = _sim_runner.get_human_runtime()
+		player_id = str(human_rt.get("player", {}).get("id", "")).strip_edges()
+	if player_id.is_empty():
+		return
+		
+	var service_raw: Variant = _sim_runner.get("_technique_service")
+	if not (service_raw is Object):
+		return
+	var technique_service: Object = service_raw
+	
+	if not technique_service.has_method("get_learned_techniques"):
+		return
+		
+	_learned_techniques = technique_service.call("get_learned_techniques", player_id)
+	
+	for tech in _learned_techniques:
+		var t_id: String = tech.get("id", "")
+		var slot_str: String = tech.get("equipped_slot", "")
+		var d_name: String = t_id
+		if slot_str != "":
+			d_name += " (已装备)"
+		var idx: int = _technique_list.add_item(d_name)
+		_technique_list.set_item_metadata(idx, t_id)
+
+func _on_technique_item_selected(idx: int) -> void:
+	if idx < 0 or idx >= _learned_techniques.size():
+		return
+		
+	var tech: Dictionary = _learned_techniques[idx]
+	_technique_selected_id = tech.get("id", "")
+	
+	var text := ""
+	text += "[b]功法ID:[/b] %s\n" % _technique_selected_id
+	text += "[b]宗门:[/b] %s\n" % tech.get("sect", "无")
+	text += "[b]境界要求:[/b] %s\n" % tech.get("realm_req", "无")
+	
+	var affixes: Array = tech.get("affixes", [])
+	if affixes.is_empty():
+		text += "\n[color=gray]无词缀[/color]\n"
+	else:
+		text += "\n[b]词缀:[/b]\n"
+		for i in range(affixes.size()):
+			var a: Dictionary = affixes[i]
+			text += "  - %s (进度: %d)\n" % [a.get("id", ""), a.get("progress", 0)]
+			
+	var slot_str: String = tech.get("equipped_slot", "")
+	if slot_str != "":
+		text += "\n[color=green]当前装备在: %s[/color]" % slot_str
+		
+	_technique_detail_label.text = text
+	_technique_equip_btn.disabled = false
+	_technique_meditate_btn.disabled = false
+
+func _on_technique_equip_pressed() -> void:
+	if _sim_runner == null or _technique_selected_id == "":
+		return
+	
+	var slot_opt_idx: int = _technique_slot_option.get_selected_id()
+	var slot_str: String = _technique_slot_option.get_item_text(slot_opt_idx)
+	
+	if _sim_runner.has_method("request_equip_technique"):
+		_sim_runner.request_equip_technique(_technique_selected_id, slot_str)
+	_refresh_technique_panel()
+
+func _on_technique_meditate_pressed() -> void:
+	if _sim_runner == null or _technique_selected_id == "":
+		return
+		
+	if _sim_runner.has_method("request_meditate_technique"):
+		# Just passing affix index 0 as placeholder since UI doesn't select affix
+		_sim_runner.request_meditate_technique(_technique_selected_id, 0)
+	_refresh_technique_panel()
+
+# --- Trade Panel Logic ---
+func _refresh_trade_panel() -> void:
+	if _trade_goods_list == null or _trade_detail_label == null:
+		return
+
+	_trade_goods_list.clear()
+	_trade_detail_label.text = "请选择左侧物品查看详情。"
+	_trade_buy_btn.disabled = true
+	_trade_sell_btn.disabled = true
+	_trade_goods.clear()
+	_trade_selected_good.clear()
+	_trade_spirit_stone_label.text = "灵石: 0"
+	
+	if _sim_runner == null:
+		return
+		
+	var player: Dictionary = {}
+	if _sim_runner.has_method("get_human_runtime"):
+		player = _sim_runner.get_human_runtime().get("player", {}) as Dictionary
+	var player_id: String = str(player.get("id", "")).strip_edges()
+	if player_id.is_empty():
+		return
+		
+	var service_raw: Variant = _sim_runner.get("_technique_service")
+	if service_raw is Object and service_raw.has_method("get_character_spirit_stones"):
+		var stones: int = service_raw.call("get_character_spirit_stones", player_id)
+		_trade_spirit_stone_label.text = "灵石: %d" % stones
+
+	var catalog_path: String = _sim_runner.get_catalog_path()
+	var catalog: Resource = load(catalog_path) as Resource
+	
+	var all_items_variant: Variant = catalog.get("items") if catalog != null else null
+	if all_items_variant is Array:
+		for item_def in all_items_variant:
+			var base_val: int = 0
+			var v: Variant = item_def.get("base_value")
+			if v != null:
+				base_val = v as int
+			if base_val > 0:
+				var item_id: String = ""
+				var id_v: Variant = item_def.get("id")
+				if id_v != null: item_id = id_v as String
+				
+				var item_name: String = ""
+				var name_v: Variant = item_def.get("name")
+				if name_v != null: item_name = name_v as String
+				
+				var good: Dictionary = {
+					"id": item_id,
+					"name": item_name,
+					"price": base_val,
+					"type": "buy"
+				}
+				_trade_goods.append(good)
+				
+	var inv: Array = player.get("inventory", [])
+	for inv_item in inv:
+		var base_val: int = 10 # Default
+		var item_id: String = inv_item.get("id", "")
+		if catalog and catalog.has_method("get_item"):
+			var d: Resource = catalog.get_item(item_id)
+			if d:
+				var v: Variant = d.get("base_value")
+				if v != null:
+					base_val = v as int
+		if base_val > 0:
+			var good: Dictionary = {
+				"id": item_id,
+				"name": item_id + " (持有)",
+				"price": int(base_val * 0.5), # Sell price is 50%
+				"type": "sell",
+				"quantity": inv_item.get("quantity", 1)
+			}
+			_trade_goods.append(good)
+				
+	for good in _trade_goods:
+		var t: String = ""
+		if good["type"] == "buy":
+			t = "[买] %s - %d灵石" % [good["name"], good["price"]]
+		else:
+			t = "[卖] %s - %d灵石" % [good["name"], good["price"]]
+		_trade_goods_list.add_item(t)
+
+func _on_trade_item_selected(idx: int) -> void:
+	if idx < 0 or idx >= _trade_goods.size():
+		return
+		
+	var good: Dictionary = _trade_goods[idx]
+	_trade_selected_good = good
+	
+	var text := ""
+	text += "[b]物品:[/b] %s\n" % good["name"]
+	text += "[b]价格:[/b] %d 灵石\n" % good["price"]
+	if good["type"] == "sell":
+		text += "[b]持有数量:[/b] %d\n" % good["quantity"]
+	
+	_trade_detail_label.text = text
+	
+	if good["type"] == "buy":
+		_trade_buy_btn.disabled = false
+		_trade_sell_btn.disabled = true
+	else:
+		_trade_buy_btn.disabled = true
+		_trade_sell_btn.disabled = false
+
+func _on_trade_buy_pressed() -> void:
+	if _sim_runner == null or _trade_selected_good.is_empty():
+		return
+		
+	var player_id: String = ""
+	if _sim_runner.has_method("get_human_runtime"):
+		var human_rt: Dictionary = _sim_runner.get_human_runtime()
+		player_id = str(human_rt.get("player", {}).get("id", "")).strip_edges()
+	var inv_srv: Node = get_node_or_null("/root/InventoryService")
+	var tech_srv_raw: Variant = _sim_runner.get("_technique_service")
+	if not (tech_srv_raw is Object):
+		return
+	var tech_srv: Object = tech_srv_raw
+	
+	if inv_srv and inv_srv.has_method("add_item") and tech_srv.has_method("set_character_spirit_stones") and tech_srv.has_method("get_character_spirit_stones"):
+		var current_stones: int = tech_srv.call("get_character_spirit_stones", player_id)
+		var price: int = _trade_selected_good.get("price", 0)
+		if current_stones >= price:
+			tech_srv.call("set_character_spirit_stones", player_id, current_stones - price)
+			inv_srv.call("add_item", player_id, _trade_selected_good.get("id", ""), 1, 0, [])
+			_refresh_trade_panel()
+		else:
+			EventLog.add_entry("灵石不足！")
+
+func _on_trade_sell_pressed() -> void:
+	if _sim_runner == null or _trade_selected_good.is_empty():
+		return
+		
+	var player_id: String = ""
+	if _sim_runner.has_method("get_human_runtime"):
+		var human_rt: Dictionary = _sim_runner.get_human_runtime()
+		player_id = str(human_rt.get("player", {}).get("id", "")).strip_edges()
+	var inv_srv: Node = get_node_or_null("/root/InventoryService")
+	var tech_srv_raw: Variant = _sim_runner.get("_technique_service")
+	if not (tech_srv_raw is Object):
+		return
+	var tech_srv: Object = tech_srv_raw
+	
+	if inv_srv and inv_srv.has_method("remove_item") and tech_srv.has_method("set_character_spirit_stones") and tech_srv.has_method("get_character_spirit_stones"):
+		var current_stones: int = tech_srv.call("get_character_spirit_stones", player_id)
+		var price: int = _trade_selected_good.get("price", 0)
+		
+		inv_srv.call("remove_item", player_id, _trade_selected_good.get("id", ""), 1)
+		tech_srv.call("set_character_spirit_stones", player_id, current_stones + price)
+		_refresh_trade_panel()
+
+# --- Combat Popup Panel Logic ---
+func _on_combat_sub_phase_changed(new_sub_phase: StringName) -> void:
+	if _combat_panel == null:
+		return
+	if new_sub_phase == &"combat":
+		_combat_panel.show()
+		_refresh_combat_panel()
+	else:
+		_combat_panel.hide()
+
+func _refresh_combat_panel() -> void:
+	if _combat_panel == null or _combat_player_hp_bar == null:
+		return
+
+	var ctx: Dictionary = RunState.combat_context
+	if ctx.is_empty():
+		return
+		
+	var p_hp: int = ctx.get("player_hp", 0)
+	var p_mhp: int = ctx.get("player_max_hp", 1)
+	var e_hp: int = ctx.get("enemy_hp", 0)
+	var e_mhp: int = ctx.get("enemy_max_hp", 1)
+	
+	_combat_player_hp_bar.max_value = p_mhp
+	_combat_player_hp_bar.value = p_hp
+	_combat_player_hp_label.text = "%d/%d" % [p_hp, p_mhp]
+	
+	_combat_enemy_hp_bar.max_value = e_mhp
+	_combat_enemy_hp_bar.value = e_hp
+	_combat_enemy_hp_label.text = "%d/%d" % [e_hp, e_mhp]
+	
+	var res: Dictionary = RunState.combat_result
+	if not res.is_empty():
+		var winner: String = res.get("winner", "")
+		_combat_result_label.text = "[center][b]战斗结束！[/b]\n获胜者: %s\n掉落: %s[/center]" % [winner, str(res.get("loot", []))]
+		_combat_attack_btn.disabled = true
+		_combat_item_btn.disabled = true
+		_combat_flee_btn.disabled = true
+	else:
+		_combat_result_label.text = ""
+		_combat_attack_btn.disabled = false
+		_combat_item_btn.disabled = false
+		_combat_flee_btn.disabled = false
+		
+	if EventLog != null and EventLog.has_method("get_entries"):
+		var all_entries: Array = EventLog.get_entries()
+		var combat_logs: Array = []
+		for entry in all_entries:
+			if entry is Dictionary and str(entry.get("category", "")) == "combat":
+				combat_logs.append(entry)
+		var log_text := ""
+		# show last 15 logs
+		var start_idx: int = max(0, combat_logs.size() - 15)
+		for i in range(start_idx, combat_logs.size()):
+			log_text += "%s\n" % combat_logs[i].get("text", "")
+		_combat_log_label.text = log_text

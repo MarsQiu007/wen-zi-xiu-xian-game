@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_item_spirit_stone"
+display_name = "灵石"
+summary = "修行界通用货币与基础灵力载体。"
+tags = PackedStringArray("item", "material", "currency", "mvp")
+human_visible = true
+deity_visible = true
+item_type = "material"
+rarity = "common"
+stack_size = 99
+base_value = 1
+equip_slot = ""
+stat_modifiers = {}
+affix_slots = 0
+element = "neutral"
+required_realm = 0
+consumable_effect = {}

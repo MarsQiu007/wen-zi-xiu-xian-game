@@ -2,13 +2,15 @@ extends RefCounted
 class_name NpcBehaviorLibrary
 
 const BehaviorAction = preload("res://scripts/data/behavior_action.gd")
+const WorldDataCatalog = preload("res://scripts/resources/world_data_catalog.gd")
 
 
 var BEHAVIOR_DEFS: Dictionary = _build_behavior_defs()
+var _custom_behaviors: Array[BehaviorAction] = []
 
 
 func get_behavior(action_id: StringName) -> BehaviorAction:
-	var behavior: BehaviorAction = BEHAVIOR_DEFS.get(action_id, null)
+	var behavior: BehaviorAction = _find_behavior_in_merged(action_id)
 	if behavior == null:
 		return BehaviorAction.new()
 	return BehaviorAction.from_dict(behavior.to_dict())
@@ -16,7 +18,7 @@ func get_behavior(action_id: StringName) -> BehaviorAction:
 
 func get_behaviors_by_category(category: StringName) -> Array[BehaviorAction]:
 	var result: Array[BehaviorAction] = []
-	for behavior: BehaviorAction in BEHAVIOR_DEFS.values():
+	for behavior in _get_merged_behaviors():
 		if behavior.category == category:
 			result.append(BehaviorAction.from_dict(behavior.to_dict()))
 	return result
@@ -24,13 +26,38 @@ func get_behaviors_by_category(category: StringName) -> Array[BehaviorAction]:
 
 func get_available_behaviors(npc_state: Dictionary, current_hours: float) -> Array[BehaviorAction]:
 	var result: Array[BehaviorAction] = []
-	for behavior: BehaviorAction in BEHAVIOR_DEFS.values():
+	for behavior in _get_merged_behaviors():
 		if not _meets_conditions(behavior.conditions, npc_state):
 			continue
 		if _is_on_cooldown(behavior, npc_state, current_hours):
 			continue
 		result.append(BehaviorAction.from_dict(behavior.to_dict()))
 	return result
+
+
+func load_custom_behaviors(catalog: WorldDataCatalog) -> void:
+	_custom_behaviors.clear()
+	if catalog == null:
+		return
+
+	var candidates: Array = []
+	_append_candidates_from_dynamic_source(candidates, catalog)
+	candidates.append_array(_extract_candidates_from_catalog_collections(catalog))
+
+	var dedup: Dictionary = {}
+	for candidate in candidates:
+		var behavior := _coerce_behavior_action(candidate)
+		if behavior.action_id == &"":
+			continue
+		dedup[behavior.action_id] = behavior
+
+	if dedup.is_empty():
+		var fallback_behavior := _build_catalog_fallback_custom_behavior(catalog)
+		if fallback_behavior.action_id != &"":
+			dedup[fallback_behavior.action_id] = fallback_behavior
+
+	for behavior in dedup.values():
+		_custom_behaviors.append(BehaviorAction.from_dict(behavior.to_dict()))
 
 
 func get_random_behavior(category: StringName, rng: RefCounted) -> BehaviorAction:
@@ -83,12 +110,46 @@ func _meets_conditions(conditions: Dictionary, npc_state: Dictionary) -> bool:
 	var realm := StringName(str(npc_state.get("realm", "")))
 	var realm_progress := float(npc_state.get("realm_progress", 0.0))
 	var has_technique := bool(npc_state.get("has_technique", false))
+	var pressures := npc_state.get("pressures", {}) as Dictionary
+
+	var any_of = conditions.get("any_of", [])
+	if any_of is Array and not (any_of as Array).is_empty():
+		var matched_any := false
+		for child_condition in any_of:
+			if child_condition is Dictionary and _meets_conditions(child_condition as Dictionary, npc_state):
+				matched_any = true
+				break
+		if not matched_any:
+			return false
+
+	var all_of = conditions.get("all_of", [])
+	if all_of is Array and not (all_of as Array).is_empty():
+		for child_condition in all_of:
+			if child_condition is Dictionary and not _meets_conditions(child_condition as Dictionary, npc_state):
+				return false
 
 	for key in conditions.keys():
 		var value = conditions[key]
 		match StringName(key):
+			&"any_of", &"all_of":
+				pass
 			&"has_technique":
 				if has_technique != bool(value):
+					return false
+			&"has_region_resource", &"has_gold", &"has_consumable", &"has_technique_opportunity", &"has_grudge", &"own_territory_threatened", &"faction_strong", &"adjacent_unclaimed", &"faction_vs_rival_in_region":
+				if bool(npc_state.get(String(key), false)) != bool(value):
+					return false
+			&"need_resource_min":
+				if _get_pressure_value(pressures, "resource") < float(value):
+					return false
+			&"need_survival_min":
+				if _get_pressure_value(pressures, "survival") < float(value):
+					return false
+			&"need_reputation_min":
+				if _get_pressure_value(pressures, "reputation") < float(value):
+					return false
+			&"need_belonging_min":
+				if _get_pressure_value(pressures, "belonging") < float(value):
 					return false
 			&"min_realm_progress":
 				if realm_progress < float(value):
@@ -104,6 +165,161 @@ func _meets_conditions(conditions: Dictionary, npc_state: Dictionary) -> bool:
 				pass
 
 	return true
+
+
+func _get_pressure_value(pressures: Dictionary, key: String) -> float:
+	return float(pressures.get(key, pressures.get(StringName(key), 0.0)))
+
+
+func _append_candidates_from_dynamic_source(candidates: Array, source) -> void:
+	if source == null:
+		return
+
+	if source.has_method("get"):
+		var field_names: PackedStringArray = ["custom_behaviors", "npc_behaviors", "behavior_definitions", "behavior_defs"]
+		for field_name in field_names:
+			var field_data = source.get(field_name)
+			if field_data is Array:
+				candidates.append_array(field_data)
+
+	if source is Object:
+		var object_source: Object = source
+		if object_source.has_meta("custom_behaviors"):
+			var meta_data = object_source.get_meta("custom_behaviors")
+			if meta_data is Array:
+				candidates.append_array(meta_data)
+		if object_source.has_meta("npc_behaviors"):
+			var npc_meta_data = object_source.get_meta("npc_behaviors")
+			if npc_meta_data is Array:
+				candidates.append_array(npc_meta_data)
+
+	if source.has_method("get_custom_behaviors"):
+		var method_result = source.call("get_custom_behaviors")
+		if method_result is Array:
+			candidates.append_array(method_result)
+	if source.has_method("get_npc_behaviors"):
+		var npc_method_result = source.call("get_npc_behaviors")
+		if npc_method_result is Array:
+			candidates.append_array(npc_method_result)
+
+
+func _extract_candidates_from_catalog_collections(catalog: WorldDataCatalog) -> Array:
+	var candidates: Array = []
+	var collections: Array = [
+		catalog.characters,
+		catalog.families,
+		catalog.factions,
+		catalog.regions,
+		catalog.event_templates,
+		catalog.doctrines,
+		catalog.deities,
+		catalog.items,
+		catalog.techniques,
+		catalog.get_crafting_recipes(),
+		catalog.loot_tables,
+	]
+	for collection in collections:
+		if not (collection is Array):
+			continue
+		for entry in collection:
+			_append_candidates_from_dynamic_source(candidates, entry)
+	return candidates
+
+
+func _build_catalog_fallback_custom_behavior(catalog: WorldDataCatalog) -> BehaviorAction:
+	var has_catalog_payload := not catalog.items.is_empty()
+	has_catalog_payload = has_catalog_payload or not catalog.techniques.is_empty()
+	has_catalog_payload = has_catalog_payload or not catalog.get_crafting_recipes().is_empty()
+	has_catalog_payload = has_catalog_payload or not catalog.loot_tables.is_empty()
+	if not has_catalog_payload:
+		return BehaviorAction.new()
+
+	var fallback := _make_behavior(
+		&"catalog_exchange_goods",
+		"目录物资调配",
+		&"survival",
+		{"resource": 2, "learning": -1, "reputation": 1},
+		{"merchant": 1},
+		{},
+		2.6,
+		"根据世界目录中的物资与配方情报安排补给调配，作为数据驱动迁移期的兜底行为。",
+		8.0
+	)
+	return fallback
+
+
+func _coerce_behavior_action(raw_data) -> BehaviorAction:
+	if raw_data is BehaviorAction:
+		return BehaviorAction.from_dict((raw_data as BehaviorAction).to_dict())
+
+	if raw_data is Dictionary:
+		return BehaviorAction.from_dict(_normalize_behavior_dict(raw_data as Dictionary))
+
+	if raw_data is Resource or raw_data is RefCounted:
+		if raw_data.has_method("to_dict"):
+			var serialized = raw_data.call("to_dict")
+			if serialized is Dictionary:
+				return BehaviorAction.from_dict(_normalize_behavior_dict(serialized as Dictionary))
+		if raw_data.has_method("get"):
+			var dict_candidate := {
+				"snapshot_version": BehaviorAction.SNAPSHOT_VERSION,
+				"action_id": str(raw_data.get("action_id", "")),
+				"label": str(raw_data.get("label", "")),
+				"category": str(raw_data.get("category", "")),
+				"pressure_deltas": raw_data.get("pressure_deltas", {}),
+				"favor_deltas": raw_data.get("favor_deltas", {}),
+				"conditions": raw_data.get("conditions", {}),
+				"weight": float(raw_data.get("weight", 1.0)),
+				"description": str(raw_data.get("description", "")),
+				"cooldown_hours": float(raw_data.get("cooldown_hours", 0.0)),
+			}
+			return BehaviorAction.from_dict(_normalize_behavior_dict(dict_candidate))
+
+	return BehaviorAction.new()
+
+
+func _normalize_behavior_dict(source: Dictionary) -> Dictionary:
+	var normalized := {
+		"snapshot_version": int(source.get("snapshot_version", BehaviorAction.SNAPSHOT_VERSION)),
+		"action_id": str(source.get("action_id", "")),
+		"label": str(source.get("label", "")),
+		"category": str(source.get("category", "")),
+		"pressure_deltas": (source.get("pressure_deltas", {}) as Dictionary).duplicate(true),
+		"favor_deltas": (source.get("favor_deltas", {}) as Dictionary).duplicate(true),
+		"conditions": (source.get("conditions", {}) as Dictionary).duplicate(true),
+		"weight": float(source.get("weight", 1.0)),
+		"description": str(source.get("description", "")),
+		"cooldown_hours": float(source.get("cooldown_hours", 0.0)),
+	}
+	if normalized["snapshot_version"] != BehaviorAction.SNAPSHOT_VERSION:
+		normalized["snapshot_version"] = BehaviorAction.SNAPSHOT_VERSION
+	return normalized
+
+
+func _get_merged_behaviors() -> Array[BehaviorAction]:
+	var merged: Array[BehaviorAction] = []
+	var custom_map: Dictionary = {}
+	for behavior in _custom_behaviors:
+		custom_map[behavior.action_id] = behavior
+
+	for behavior in BEHAVIOR_DEFS.values():
+		if custom_map.has(behavior.action_id):
+			merged.append(BehaviorAction.from_dict((custom_map[behavior.action_id] as BehaviorAction).to_dict()))
+			custom_map.erase(behavior.action_id)
+		else:
+			merged.append(BehaviorAction.from_dict(behavior.to_dict()))
+
+	for behavior in custom_map.values():
+		merged.append(BehaviorAction.from_dict((behavior as BehaviorAction).to_dict()))
+
+	return merged
+
+
+func _find_behavior_in_merged(action_id: StringName) -> BehaviorAction:
+	for behavior in _get_merged_behaviors():
+		if behavior.action_id == action_id:
+			return behavior
+	return null
 
 
 func _rng_randf(rng: RefCounted) -> float:
@@ -280,6 +496,18 @@ func _build_behavior_defs() -> Dictionary:
 			{"cultivation": -2, "survival": 1, "resource": -1}, {}, {"has_technique": true}, 2.9,
 			"以灵力洗练筋骨血脉，夯实承载上限。", 20.0
 		),
+		&"learn_technique": _make_behavior(
+			&"learn_technique", "学习功法", &"cultivation",
+			{"learning": -2, "reputation": -2, "resource": -1}, {"mentor": 1},
+			{"has_technique_opportunity": true, "need_reputation_min": 35.0}, 3.3,
+			"抓住机缘习得新功法，提升后续修行与战斗上限。", 24.0
+		),
+		&"meditate_affix": _make_behavior(
+			&"meditate_affix", "参悟词条", &"cultivation",
+			{"learning": -1, "reputation": -3, "resource": -2}, {"mentor": 1},
+			{"has_technique": true, "has_gold": true, "need_reputation_min": 50.0}, 2.0,
+			"投入灵石反复参悟功法细节，尝试打磨更契合的词条效果。", 36.0
+		),
 
 		# exploration (6)
 		&"scout_area": _make_behavior(
@@ -311,6 +539,24 @@ func _build_behavior_defs() -> Dictionary:
 			&"gather_intel", "收集情报", &"exploration",
 			{"learning": -1, "reputation": 1, "resource": 1}, {"neighbor": 1, "friend": 1}, {}, 3.0,
 			"从多方渠道拼接情报，提早发现机会与威胁。", 10.0
+		),
+		&"gather_resource": _make_behavior(
+			&"gather_resource", "采集区域资源", &"survival",
+			{"resource": 3, "survival": -2, "learning": 1}, {"ally": 1},
+			{"has_region_resource": true, "need_resource_min": 45.0}, 3.9,
+			"在当前区域采集可用资源，缓解物资压力并补充库存。", 10.0
+		),
+		&"trade_item": _make_behavior(
+			&"trade_item", "交易物品", &"survival",
+			{"resource": 2, "reputation": 1, "belonging": -1}, {"merchant": 2, "friend": 1},
+			{"has_gold": true, "need_resource_min": 35.0}, 3.2,
+			"用手头灵石与人互通有无，以较低风险补全急需物资。", 14.0
+		),
+		&"use_consumable": _make_behavior(
+			&"use_consumable", "使用消耗品", &"survival",
+			{"survival": -3, "resource": -1, "cultivation": -1}, {},
+			{"has_consumable": true, "need_survival_min": 40.0}, 3.6,
+			"在状态不稳时优先使用消耗品，快速恢复并避免风险扩大。", 4.0
 		),
 
 		# conflict (8)
@@ -353,5 +599,23 @@ func _build_behavior_defs() -> Dictionary:
 			&"flee_conflict", "逃离冲突", &"conflict",
 			{"survival": -2, "reputation": -1, "belonging": 1}, {"family": 1}, {}, 2.9,
 			"暂避锋芒保存实力，等待更有利时机。", 12.0
+		),
+		&"challenge_npc": _make_behavior(
+			&"challenge_npc", "挑战NPC", &"conflict",
+			{"reputation": 2, "resource": 2, "survival": 2}, {"rival": -3, "enemy": -2},
+			{"any_of": [{"has_grudge": true}, {"need_resource_min": 55.0}], "need_reputation_min": 25.0, "min_realm_progress": 20.0}, 2.5,
+			"因旧怨或资源压力主动邀战，通过战斗解决矛盾并争取利益。", 28.0
+		),
+		&"expand_territory": _make_behavior(
+			&"expand_territory", "扩张领地", &"conflict",
+			{"belonging": -3, "reputation": 2, "resource": 1, "survival": 2}, {"ally": 2, "rival": -2},
+			{"faction_strong": true, "adjacent_unclaimed": true, "need_belonging_min": 50.0, "min_realm_progress": 35.0}, 1.7,
+			"在势力强盛且边境有空缺时推进扩张，提升阵营控制范围。", 72.0
+		),
+		&"contest_region": _make_behavior(
+			&"contest_region", "争夺区域", &"conflict",
+			{"belonging": -2, "reputation": 2, "resource": 1, "survival": 2}, {"ally": 1, "rival": -3},
+			{"faction_vs_rival_in_region": true, "need_belonging_min": 45.0, "min_realm_progress": 30.0}, 2.1,
+			"在敌对势力交界区域发起争夺，力求改变领地归属。", 54.0
 		),
 	}

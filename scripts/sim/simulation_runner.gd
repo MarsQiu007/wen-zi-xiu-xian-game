@@ -20,12 +20,19 @@ const CharacterCreationParamsScript = preload("res://scripts/data/character_crea
 const WorldSeedDataScript = preload("res://scripts/data/world_seed_data.gd")
 const RelationshipEdgeScript = preload("res://scripts/data/relationship_edge.gd")
 const NpcMemoryEntryScript = preload("res://scripts/data/npc_memory_entry.gd")
+const RNGChannelsScript = preload("res://scripts/core/rng_channels.gd")
+const TickOrderScript = preload("res://scripts/core/tick_order.gd")
+const CombatManagerScript = preload("res://scripts/combat/combat_manager.gd")
+const CombatActionDataScript = preload("res://scripts/data/combat_action_data.gd")
+const WorldDynamicsServiceScript = preload("res://scripts/services/world_dynamics_service.gd")
+const TechniqueServiceScript = preload("res://scripts/services/technique_service.gd")
+const CombatantDataScript = preload("res://scripts/data/combatant_data.gd")
 
 const NEED_RESOURCE := &"resource_pressure"
 const NEED_STABILITY := &"stability"
 const NEED_REPUTATION := &"reputation"
 const NEED_BELONGING := &"belonging"
-const SNAPSHOT_VERSION := 1
+const SNAPSHOT_VERSION := 2
 const SNAPSHOT_ERROR_OK := "ok"
 const SNAPSHOT_ERROR_INVALID_ROOT_TYPE := "invalid_root_type"
 const SNAPSHOT_ERROR_MISSING_FIELD := "missing_field"
@@ -79,6 +86,14 @@ var _behavior_library: RefCounted = NpcBehaviorLibraryScript.new()
 var _npc_decision_intervals: Dictionary = {}
 var _creation_params_snapshot: Dictionary = {}
 var _world_seed_snapshot: Dictionary = {}
+var _rng_channels: RefCounted = RNGChannelsScript.new()
+var _combat_manager: RefCounted = CombatManagerScript.new()
+var _world_dynamics_service: RefCounted = WorldDynamicsServiceScript.new()
+var _technique_service: RefCounted = TechniqueServiceScript.new()
+var _pending_combat_actions: Array[Dictionary] = []
+var _pending_territory_actions: Array[Dictionary] = []
+var _pending_player_combat_action: Dictionary = {}
+var _active_player_combat_context: Dictionary = {}
 
 
 func setup_services(time_service: Node, event_log: Node, run_state: Node, location_service: Node = null) -> void:
@@ -86,6 +101,15 @@ func setup_services(time_service: Node, event_log: Node, run_state: Node, locati
 	_event_log_node = event_log
 	_run_state_node = run_state
 	_location_service_node = location_service
+	if _catalog == null:
+		_catalog = load(_catalog_path)
+	_bind_dynamic_services()
+	_bind_run_state_signals()
+	var tree := get_tree()
+	if tree != null and tree.root != null:
+		var inventory_service := tree.root.get_node_or_null("InventoryService")
+		if inventory_service != null and inventory_service.has_method("bind_catalog"):
+			inventory_service.bind_catalog(_catalog)
 
 
 # 已弃用：保留旧入口以兼容历史调用，建议改用 bootstrap_from_creation。
@@ -110,6 +134,7 @@ func bootstrap_from_creation(creation_params: Dictionary, seed_data: Dictionary)
 	_world_seed_snapshot = seed_resource.to_dict()
 	_seed = int(seed_resource.seed_value)
 	_random.set_seed(_seed)
+	_rng_channels.seed_all(_seed)
 
 	var generated_world: Dictionary = _world_generator.generate(seed_resource)
 	var generated_characters: Array = generated_world.get("characters", [])
@@ -131,6 +156,12 @@ func bootstrap_from_creation(creation_params: Dictionary, seed_data: Dictionary)
 	_decision_engine = NpcDecisionEngineScript.new()
 	_behavior_library = NpcBehaviorLibraryScript.new()
 	_npc_decision_intervals.clear()
+	_pending_combat_actions.clear()
+	_pending_territory_actions.clear()
+	_pending_player_combat_action = {}
+	_active_player_combat_context = {}
+	_bind_dynamic_services()
+	_bind_run_state_signals()
 
 	_resolved_days = 0
 	_pause_count = 0
@@ -164,12 +195,15 @@ func bootstrap_from_creation(creation_params: Dictionary, seed_data: Dictionary)
 				"relationship_count": _relationship_network.edge_count(),
 			},
 		})
+
+	_initialize_world_dynamics(generated_world.get("region_dynamics_init", {}))
 	bootstrapped.emit()
 
 
 func reset_simulation(new_seed: int = -1) -> void:
 	_seed = _resolve_seed(new_seed)
 	_random.set_seed(_seed)
+	_rng_channels.seed_all(_seed)
 	_resolved_days = 0
 	_pause_count = 0
 	_pending_checkpoint = {}
@@ -192,9 +226,17 @@ func reset_simulation(new_seed: int = -1) -> void:
 		"monster_density": 0.3,
 	}
 	_initialize_npc_runtime_supports()
+	_pending_combat_actions.clear()
+	_pending_territory_actions.clear()
+	_pending_player_combat_action = {}
+	_active_player_combat_context = {}
+	_bind_dynamic_services()
+	_bind_run_state_signals()
+	_initialize_world_dynamics({})
 	_time_service().reset_clock()
 	_event_log().clear()
 	_run_state().set_phase(&"ready")
+	_run_state().set_sub_phase(&"")
 	_event_log().add_event({
 		"category": "system",
 		"title": "模拟已重置",
@@ -267,6 +309,38 @@ func get_event_template_history() -> Array[Dictionary]:
 	return _event_template_history.duplicate(true)
 
 
+func get_region_dynamic_state(region_id: String) -> Dictionary:
+	if _world_dynamics_service == null:
+		return {}
+	return _world_dynamics_service.get_region_state(region_id)
+
+
+func get_all_region_dynamic_states() -> Dictionary:
+	if _world_dynamics_service == null:
+		return {}
+	return _world_dynamics_service.get_all_region_states()
+
+
+func get_technique_service() -> RefCounted:
+	return _technique_service
+
+
+func request_player_challenge(target_character_id: String = "") -> Dictionary:
+	if _human_runtime.is_empty():
+		return {"queued": false, "reason": "missing_human_runtime"}
+	var player: Dictionary = _human_runtime.get("player", {})
+	var player_id := str(player.get("id", "")).strip_edges()
+	if player_id.is_empty():
+		return {"queued": false, "reason": "missing_player_id"}
+	var queued_hours := float(_time_service().total_hours) if _time_service() != null else 0.0
+	var outcome := _queue_player_challenge_action(StringName(player_id), queued_hours, target_character_id)
+	return {
+		"queued": bool(outcome.get("queued", false)),
+		"target_id": str(outcome.get("target_id", "")),
+		"reason": str(outcome.get("reason", "")),
+	}
+
+
 func get_snapshot() -> Dictionary:
 	var mode := ""
 	if _run_state() != null:
@@ -289,6 +363,28 @@ func get_snapshot() -> Dictionary:
 	if not event_entries.is_empty():
 		last_entry_id = str(event_entries[event_entries.size() - 1].get("entry_id", ""))
 
+	var inventory_data: Dictionary = {}
+	var inventory_service := _inventory_service()
+	if inventory_service != null and inventory_service.has_method("save_state"):
+		inventory_data = _normalize_snapshot_value(inventory_service.save_state())
+
+	var technique_data: Dictionary = {}
+	if _technique_service != null and _technique_service.has_method("save_state"):
+		technique_data = _normalize_snapshot_value(_technique_service.save_state())
+
+	var world_dynamics_data: Dictionary = {}
+	if _world_dynamics_service != null and _world_dynamics_service.has_method("save_state"):
+		world_dynamics_data = _normalize_snapshot_value(_world_dynamics_service.save_state())
+
+	var crafting_data: Dictionary = {}
+	var crafting_service := _crafting_service()
+	if crafting_service != null and crafting_service.has_method("save_state"):
+		crafting_data = _normalize_snapshot_value(crafting_service.save_state())
+
+	var rng_state_data: Dictionary = {}
+	if _rng_channels != null and _rng_channels.has_method("save_state"):
+		rng_state_data = _normalize_snapshot_value(_rng_channels.save_state())
+
 	return {
 		"snapshot_version": SNAPSHOT_VERSION,
 		"seed": _seed,
@@ -302,6 +398,11 @@ func get_snapshot() -> Dictionary:
 		"memory_system": _normalize_snapshot_value(_memory_system.to_dict() if _memory_system != null else {}),
 		"npc_decision_intervals": _normalize_snapshot_value(_npc_decision_intervals),
 		"speed_tier": speed_tier_snapshot,
+		"inventory_data": inventory_data,
+		"technique_data": technique_data,
+		"world_dynamics_data": world_dynamics_data,
+		"crafting_data": crafting_data,
+		"rng_state": rng_state_data,
 		"log_cursor": {
 			"entry_count": event_entries.size(),
 			"last_entry_id": last_entry_id,
@@ -329,6 +430,11 @@ func load_snapshot(snapshot: Dictionary) -> Dictionary:
 	var memory_system_data: Dictionary = normalized.get("memory_system", {})
 	var npc_decision_intervals_data: Dictionary = normalized.get("npc_decision_intervals", {})
 	var speed_tier_data := int(normalized.get("speed_tier", 2))
+	var inventory_data: Dictionary = normalized.get("inventory_data", {})
+	var technique_data: Dictionary = normalized.get("technique_data", {})
+	var world_dynamics_data: Dictionary = normalized.get("world_dynamics_data", {})
+	var crafting_data: Dictionary = normalized.get("crafting_data", {})
+	var rng_state_data: Dictionary = normalized.get("rng_state", {})
 	var log_cursor: Dictionary = normalized.get("log_cursor", {})
 	var event_entries: Array = normalized.get("event_log_entries", [])
 
@@ -359,6 +465,7 @@ func load_snapshot(snapshot: Dictionary) -> Dictionary:
 	_decision_engine = NpcDecisionEngineScript.new()
 	_behavior_library = NpcBehaviorLibraryScript.new()
 	_npc_decision_intervals = npc_decision_intervals_data.duplicate(true)
+	_apply_snapshot_service_states(snapshot_seed, inventory_data, technique_data, world_dynamics_data, crafting_data, rng_state_data)
 
 	if _event_log() != null:
 		_event_log().clear()
@@ -409,24 +516,41 @@ func advance_tick(hours: float) -> void:
 	var current_hours := float(_time_service().total_hours)
 	var current_completed_day: int = int(_time_service().get_completed_day())
 
-	for index in range(_runtime_characters.size()):
-		var character: Dictionary = _runtime_characters[index]
-		var character_id := StringName(str(character.get("id", "")))
-		if character_id == &"":
-			continue
+	for phase in TickOrderScript.PHASE_ORDER:
+		match phase:
+			TickOrderScript.PHASE_PRODUCTION:
+				_world_dynamics_service.advance_production()
+				_world_dynamics_service.advance_consumption(1.0)
+			TickOrderScript.PHASE_NPC_DECISION:
+				for index in range(_runtime_characters.size()):
+					var character: Dictionary = _runtime_characters[index]
+					var character_id := StringName(str(character.get("id", "")))
+					if character_id == &"":
+						continue
 
-		var npc_state := get_npc_state(character_id)
-		npc_state["current_hours"] = current_hours
-		var interval_hours := float(_decision_engine.get_decision_interval(npc_state))
-		var last_decision_hours := float(_npc_decision_intervals.get(String(character_id), -999999.0))
-		if current_hours - last_decision_hours < interval_hours:
-			continue
+					var npc_state := get_npc_state(character_id)
+					npc_state["current_hours"] = current_hours
+					var interval_hours := float(_decision_engine.get_decision_interval(npc_state))
+					var last_decision_hours := float(_npc_decision_intervals.get(String(character_id), -999999.0))
+					if current_hours - last_decision_hours < interval_hours:
+						continue
 
-		var decision_context := get_decision_context()
-		decision_context["current_hours"] = current_hours
-		var decision: Dictionary = _decision_engine.decide_action(npc_state, decision_context)
-		_apply_npc_decision(index, decision, current_hours)
-		_npc_decision_intervals[String(character_id)] = current_hours
+					var decision_context := get_decision_context()
+					decision_context["current_hours"] = current_hours
+					var decision: Dictionary = _decision_engine.decide_action(npc_state, decision_context)
+					_apply_npc_decision(index, decision, current_hours)
+					_npc_decision_intervals[String(character_id)] = current_hours
+			TickOrderScript.PHASE_NPC_ACTION:
+				pass
+			TickOrderScript.PHASE_COMBAT:
+				_resolve_pending_player_combats(current_hours)
+				_resolve_pending_npc_combats(current_hours)
+			TickOrderScript.PHASE_TERRITORY:
+				_resolve_pending_territory_actions(current_hours)
+			TickOrderScript.PHASE_CLEANUP:
+				pass
+			_:
+				pass
 
 	if current_completed_day > previous_completed_day:
 		for day_value in range(previous_completed_day + 1, current_completed_day + 1):
@@ -498,6 +622,17 @@ func get_npc_state(character_id: StringName) -> Dictionary:
 			"has_technique": bool(character.get("has_technique", false)),
 			"pressures": pressures,
 			"morality": float(character.get("morality", 0.0)),
+			"region_id": StringName(str(character.get("region_id", ""))),
+			"faction_id": StringName(str(character.get("faction_id", ""))),
+			"has_gold": _has_spirit_stones(String(character_id), 1),
+			"has_consumable": _has_consumable_item(String(character_id)),
+			"has_technique_opportunity": _has_technique_opportunity(character),
+			"has_grudge": _has_grudge(character_id),
+			"has_region_resource": _has_region_resource(StringName(str(character.get("region_id", "")))),
+			"own_territory_threatened": _own_territory_threatened(StringName(str(character.get("faction_id", "")))),
+			"faction_strong": _faction_strong(StringName(str(character.get("faction_id", "")))),
+			"faction_vs_rival_in_region": _faction_vs_rival_in_region(character),
+			"adjacent_unclaimed": _adjacent_unclaimed(StringName(str(character.get("region_id", "")))),
 			"life_stage": life_stage,
 			"last_action_hours": (character.get("last_action_hours", {}) as Dictionary).duplicate(true),
 		}
@@ -509,6 +644,17 @@ func get_npc_state(character_id: StringName) -> Dictionary:
 		"has_technique": false,
 		"pressures": {},
 		"morality": 0.0,
+		"region_id": &"",
+		"faction_id": &"",
+		"has_gold": false,
+		"has_consumable": false,
+		"has_technique_opportunity": false,
+		"has_grudge": false,
+		"has_region_resource": false,
+		"own_territory_threatened": false,
+		"faction_strong": false,
+		"faction_vs_rival_in_region": false,
+		"adjacent_unclaimed": false,
 		"life_stage": &"young_adult",
 		"last_action_hours": {},
 	}
@@ -518,6 +664,8 @@ func get_decision_context() -> Dictionary:
 	return {
 		"relationships": _relationship_network,
 		"memory_system": _memory_system,
+		"world_dynamics_service": _world_dynamics_service,
+		"catalog": _catalog,
 		"current_hours": float(_time_service().total_hours),
 	}
 
@@ -533,6 +681,32 @@ func _apply_npc_decision(character_index: int, decision: Dictionary, current_hou
 	var action = decision.get("action", null)
 	if action == null:
 		return
+	var action_id := StringName(str(action.action_id))
+	var service_related_ids: PackedStringArray = PackedStringArray()
+	var service_trace: Dictionary = {}
+	match action_id:
+		&"challenge_npc":
+			var challenge_outcome := _queue_or_resolve_challenge_action(character, character_id, current_hours)
+			service_related_ids = challenge_outcome.get("related_ids", PackedStringArray())
+			service_trace = challenge_outcome.get("trace", {})
+		&"contest_region":
+			var contest_outcome := _queue_contest_region_action(character, character_id, current_hours)
+			service_related_ids = contest_outcome.get("related_ids", PackedStringArray())
+			service_trace = contest_outcome.get("trace", {})
+		&"gather_resource":
+			var gather_outcome := _apply_gather_resource_action(character, character_id, current_hours)
+			service_related_ids = gather_outcome.get("related_ids", PackedStringArray())
+			service_trace = gather_outcome.get("trace", {})
+		&"learn_technique":
+			var learn_outcome := _apply_learn_technique_action(character, character_id)
+			service_related_ids = learn_outcome.get("related_ids", PackedStringArray())
+			service_trace = learn_outcome.get("trace", {})
+		&"trade_item":
+			var trade_outcome := _apply_trade_item_action(character, character_id)
+			service_related_ids = trade_outcome.get("related_ids", PackedStringArray())
+			service_trace = trade_outcome.get("trace", {})
+		_:
+			pass
 
 	var pressures: Dictionary = (character.get("pressures", {}) as Dictionary).duplicate(true)
 	var total_pressure_shift := 0.0
@@ -555,6 +729,9 @@ func _apply_npc_decision(character_index: int, decision: Dictionary, current_hou
 			_relationship_network.modify_favor(edge.source_id, edge.target_id, favor_delta)
 			if not related_ids.has(String(edge.target_id)):
 				related_ids.append(String(edge.target_id))
+	for extra_related_id in service_related_ids:
+		if not related_ids.has(String(extra_related_id)):
+			related_ids.append(String(extra_related_id))
 
 	var last_action_hours: Dictionary = (character.get("last_action_hours", {}) as Dictionary).duplicate(true)
 	last_action_hours[String(action.action_id)] = current_hours
@@ -584,8 +761,1079 @@ func _apply_npc_decision(character_index: int, decision: Dictionary, current_hou
 			"trace": {
 				"scores": decision.get("scores", {}),
 				"current_hours": current_hours,
+				"service_trace": service_trace,
 			},
 		})
+
+
+func _bind_dynamic_services() -> void:
+	if _catalog == null:
+		_catalog = load(_catalog_path)
+	if _rng_channels == null:
+		_rng_channels = RNGChannelsScript.new()
+	if _combat_manager == null:
+		_combat_manager = CombatManagerScript.new()
+	if _world_dynamics_service == null:
+		_world_dynamics_service = WorldDynamicsServiceScript.new()
+	if _technique_service == null:
+		_technique_service = TechniqueServiceScript.new()
+
+	if _combat_manager != null:
+		_combat_manager.bind_catalog(_catalog)
+		_combat_manager.bind_event_log(_event_log())
+		_combat_manager.bind_rng_channels(_rng_channels)
+	if _world_dynamics_service != null:
+		_world_dynamics_service.bind_catalog(_catalog)
+		_world_dynamics_service.bind_event_log(_event_log())
+		_world_dynamics_service.bind_rng_channels(_rng_channels)
+	if _technique_service != null:
+		_technique_service.bind_catalog(_catalog)
+		_technique_service.bind_event_log(_event_log())
+		_technique_service.bind_rng_channels(_rng_channels)
+
+
+func _bind_run_state_signals() -> void:
+	var run_state := _run_state()
+	if run_state == null:
+		return
+	if run_state.has_signal("player_combat_action_submitted"):
+		var action_callable := Callable(self, "_on_player_combat_action_submitted")
+		if not run_state.is_connected("player_combat_action_submitted", action_callable):
+			run_state.connect("player_combat_action_submitted", action_callable)
+
+
+func _inventory_service() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null("InventoryService")
+
+
+func _crafting_service() -> Node:
+	var tree := get_tree()
+	if tree == null or tree.root == null:
+		return null
+	return tree.root.get_node_or_null("CraftingService")
+
+
+func _resolve_catalog_regions() -> Array:
+	if _catalog == null or not _catalog.has_method("get"):
+		return []
+	var regions_raw: Variant = _catalog.get("regions")
+	if regions_raw is Array:
+		return regions_raw
+	return []
+
+
+func _initialize_world_dynamics(region_dynamics_init: Variant = {}) -> void:
+	if _world_dynamics_service == null:
+		return
+	var regions_for_init: Array = _resolve_world_dynamics_init_regions(region_dynamics_init)
+	if regions_for_init.is_empty():
+		regions_for_init = _resolve_catalog_regions()
+	_world_dynamics_service.init_region_states(regions_for_init, _random)
+
+
+func _resolve_world_dynamics_init_regions(region_dynamics_init: Variant) -> Array:
+	var result: Array = []
+	if not (region_dynamics_init is Dictionary):
+		return result
+	var region_states: Dictionary = region_dynamics_init
+	if region_states.is_empty():
+		return result
+
+	var region_ids: Array[String] = []
+	for region_id_variant in region_states.keys():
+		var region_id := str(region_id_variant).strip_edges()
+		if region_id.is_empty():
+			continue
+		region_ids.append(region_id)
+	region_ids.sort()
+
+	for region_id in region_ids:
+		var state_raw: Variant = region_states.get(region_id, {})
+		if not (state_raw is Dictionary):
+			continue
+		var state_entry: Dictionary = (state_raw as Dictionary).duplicate(true)
+		state_entry["id"] = region_id
+		if str(state_entry.get("controlling_faction_id", "")).strip_edges().is_empty() and _catalog != null and _catalog.has_method("find_region"):
+			var catalog_region: Resource = _catalog.find_region(StringName(region_id))
+			if catalog_region != null:
+				state_entry["controlling_faction_id"] = str(_resource_get(catalog_region, "controlling_faction_id", "")).strip_edges()
+		result.append(state_entry)
+	return result
+
+
+func _has_spirit_stones(character_id: String, amount: int) -> bool:
+	if _technique_service == null or not _technique_service.has_method("get_character_spirit_stones"):
+		return false
+	return int(_technique_service.get_character_spirit_stones(character_id)) >= amount
+
+
+func _has_consumable_item(character_id: String) -> bool:
+	var inventory_service := _inventory_service()
+	if inventory_service == null or not inventory_service.has_method("get_inventory"):
+		return false
+	var inventory: Array = inventory_service.get_inventory(character_id)
+	if inventory.is_empty():
+		return false
+	for entry_raw in inventory:
+		if not (entry_raw is Dictionary):
+			continue
+		var entry: Dictionary = entry_raw
+		if int(entry.get("quantity", 0)) <= 0:
+			continue
+		var item_id := str(entry.get("item_id", "")).strip_edges()
+		if item_id.is_empty() or _catalog == null or not _catalog.has_method("find_item"):
+			continue
+		var item: Resource = _catalog.find_item(StringName(item_id))
+		if item == null:
+			continue
+		if str(_resource_get(item, "item_type", "")) == "consumable":
+			return true
+	return false
+
+
+func _has_technique_opportunity(character: Dictionary) -> bool:
+	if _catalog == null:
+		return false
+	if bool(character.get("has_technique", false)):
+		return false
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	var sect_techniques: Array = _catalog.get_techniques_by_sect(faction_id)
+	if not sect_techniques.is_empty():
+		return true
+	var techniques: Array = _catalog.get("techniques") if _catalog.has_method("get") else []
+	for technique in techniques:
+		if technique == null:
+			continue
+		if str(_resource_get(technique, "sect_exclusive_id", "")).strip_edges().is_empty():
+			return true
+	return false
+
+
+func _has_grudge(character_id: StringName) -> bool:
+	if _relationship_network == null:
+		return false
+	for edge in _relationship_network.get_edges_for(character_id):
+		if edge == null:
+			continue
+		if edge.relation_type == &"enemy" or int(edge.favor) <= -50:
+			return true
+	return false
+
+
+func _has_region_resource(region_id: StringName) -> bool:
+	if _world_dynamics_service == null:
+		return false
+	var state: Dictionary = _world_dynamics_service.get_region_state(String(region_id))
+	if state.is_empty():
+		return false
+	var stockpiles: Dictionary = state.get("resource_stockpiles", {})
+	for amount in stockpiles.values():
+		if int(amount) > 0:
+			return true
+	return false
+
+
+func _own_territory_threatened(faction_id: StringName) -> bool:
+	if _world_dynamics_service == null:
+		return false
+	var territories: Array[String] = _world_dynamics_service.get_faction_territories(String(faction_id))
+	for region_id in territories:
+		var state: Dictionary = _world_dynamics_service.get_region_state(region_id)
+		if state.is_empty():
+			continue
+		if float(state.get("danger_level", 0.0)) >= 0.6:
+			return true
+	return false
+
+
+func _faction_strong(faction_id: StringName) -> bool:
+	if _world_dynamics_service == null:
+		return false
+	var territories: Array[String] = _world_dynamics_service.get_faction_territories(String(faction_id))
+	if territories.size() < 2:
+		return false
+	var stable := 0
+	for region_id in territories:
+		var state: Dictionary = _world_dynamics_service.get_region_state(region_id)
+		if state.is_empty():
+			continue
+		if float(state.get("faction_modifier", 1.0)) >= 1.05:
+			stable += 1
+	return stable >= 2
+
+
+func _faction_vs_rival_in_region(character: Dictionary) -> bool:
+	var region_id := str(character.get("region_id", "")).strip_edges()
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	var character_id := StringName(str(character.get("id", "")))
+	if region_id.is_empty() or faction_id.is_empty() or character_id == &"":
+		return false
+	if _world_dynamics_service == null:
+		return false
+	var state: Dictionary = _world_dynamics_service.get_region_state(region_id)
+	if state.is_empty():
+		return false
+	var controlling_faction_id := str(state.get("controlling_faction_id", "")).strip_edges()
+	if controlling_faction_id.is_empty() or controlling_faction_id == faction_id:
+		return false
+	return _has_grudge(character_id)
+
+
+func _adjacent_unclaimed(region_id: StringName) -> bool:
+	if _catalog == null or not _catalog.has_method("find_region"):
+		return false
+	var region: Resource = _catalog.find_region(region_id)
+	if region == null:
+		return false
+	var adjacent_ids: Variant = _resource_get(region, "adjacent_region_ids", PackedStringArray())
+	if not (adjacent_ids is PackedStringArray):
+		return false
+	for adjacent_id_variant in adjacent_ids:
+		var adjacent_region: Resource = _catalog.find_region(StringName(str(adjacent_id_variant)))
+		if adjacent_region == null:
+			continue
+		if str(_resource_get(adjacent_region, "controlling_faction_id", "")).strip_edges().is_empty():
+			return true
+	return false
+
+
+func _queue_or_resolve_challenge_action(character: Dictionary, character_id: StringName, current_hours: float) -> Dictionary:
+	if _is_human_player_character_id(String(character_id)):
+		var player_challenge := _queue_player_challenge_action(character_id, current_hours)
+		if bool(player_challenge.get("queued", false)):
+			return {
+				"related_ids": player_challenge.get("related_ids", PackedStringArray()),
+				"trace": {
+					"queued": true,
+					"player_combat": true,
+					"target_id": str(player_challenge.get("target_id", "")),
+				},
+			}
+	if _should_trigger_player_conflict(character_id):
+		var conflict_outcome := _queue_player_challenge_action(StringName(_get_human_player_id()), current_hours, String(character_id))
+		if bool(conflict_outcome.get("queued", false)):
+			return {
+				"related_ids": conflict_outcome.get("related_ids", PackedStringArray()),
+				"trace": {
+					"queued": true,
+					"player_combat": true,
+					"conflict": true,
+					"target_id": str(conflict_outcome.get("target_id", "")),
+				},
+			}
+	var target_index := _pick_combat_target_index(character_id)
+	if target_index == -1:
+		return {
+			"related_ids": PackedStringArray(),
+			"trace": {"queued": false, "reason": "no_target"},
+		}
+	_pending_combat_actions.append({
+		"actor_id": String(character_id),
+		"target_index": target_index,
+		"queued_hours": current_hours,
+		"territory_contest": false,
+	})
+	return {
+		"related_ids": PackedStringArray([str(_runtime_characters[target_index].get("id", ""))]),
+		"trace": {"queued": true, "target_id": str(_runtime_characters[target_index].get("id", ""))},
+	}
+
+
+func _queue_contest_region_action(character: Dictionary, character_id: StringName, current_hours: float) -> Dictionary:
+	var region_id := str(character.get("region_id", "")).strip_edges()
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	var target_index := _pick_combat_target_index(character_id)
+	if region_id.is_empty() or faction_id.is_empty() or target_index == -1:
+		return {
+			"related_ids": PackedStringArray(),
+			"trace": {"queued": false, "reason": "missing_region_or_target"},
+		}
+	_pending_combat_actions.append({
+		"actor_id": String(character_id),
+		"target_index": target_index,
+		"queued_hours": current_hours,
+		"territory_contest": true,
+		"region_id": region_id,
+		"challenger_faction_id": faction_id,
+	})
+	return {
+		"related_ids": PackedStringArray([region_id, str(_runtime_characters[target_index].get("id", ""))]),
+		"trace": {"queued": true, "region_id": region_id, "target_id": str(_runtime_characters[target_index].get("id", ""))},
+	}
+
+
+func _apply_gather_resource_action(character: Dictionary, character_id: StringName, _current_hours: float) -> Dictionary:
+	var region_id := str(character.get("region_id", "")).strip_edges()
+	if region_id.is_empty() or _world_dynamics_service == null:
+		return {"related_ids": PackedStringArray(), "trace": {"success": false, "reason": "missing_region"}}
+	var resource_type := _resolve_region_resource_type(region_id)
+	if resource_type.is_empty():
+		return {"related_ids": PackedStringArray([region_id]), "trace": {"success": false, "reason": "no_resource_type"}}
+	var amount := 5
+	var consumed: bool = bool(_world_dynamics_service.gather_resource(region_id, resource_type, amount))
+	if not consumed:
+		return {
+			"related_ids": PackedStringArray([region_id]),
+			"trace": {"success": false, "region_id": region_id, "resource_type": resource_type, "amount": amount},
+		}
+	var inventory_service := _inventory_service()
+	var item_id := _resolve_gather_item_id(resource_type)
+	var inventory_added := false
+	if inventory_service != null and inventory_service.has_method("add_item"):
+		inventory_added = bool(inventory_service.add_item(String(character_id), item_id, amount, "common", []))
+	return {
+		"related_ids": PackedStringArray([region_id]),
+		"trace": {
+			"success": consumed and inventory_added,
+			"region_id": region_id,
+			"resource_type": resource_type,
+			"item_id": item_id,
+			"amount": amount,
+			"inventory_added": inventory_added,
+		},
+	}
+
+
+func _apply_learn_technique_action(character: Dictionary, character_id: StringName) -> Dictionary:
+	if _technique_service == null or _catalog == null:
+		return {"related_ids": PackedStringArray(), "trace": {"success": false, "reason": "service_missing"}}
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	var candidates: Array = _catalog.get_techniques_by_sect(faction_id)
+	if candidates.is_empty() and _catalog.has_method("get"):
+		candidates = _catalog.get("techniques")
+	if candidates.is_empty():
+		return {"related_ids": PackedStringArray(), "trace": {"success": false, "reason": "no_technique_candidate"}}
+	var technique_id := str(_resource_get(candidates[0], "id", "")).strip_edges()
+	if technique_id.is_empty():
+		return {"related_ids": PackedStringArray(), "trace": {"success": false, "reason": "invalid_technique_id"}}
+	_technique_service.set_character_profile(String(character_id), {
+		"faction_id": faction_id,
+		"realm_level": int(round(float(character.get("cultivation_progress", 0.0)) / 10.0)),
+		"sword_qualification": 100,
+		"constitution": 100,
+		"fire_root": 100,
+	})
+	var result: Dictionary = _technique_service.learn_technique(String(character_id), technique_id, _catalog)
+	if not bool(result.get("success", false)):
+		var fallback_technique_id := _find_fallback_technique_id_for_character(character)
+		if not fallback_technique_id.is_empty() and fallback_technique_id != technique_id:
+			result = _technique_service.learn_technique(String(character_id), fallback_technique_id, _catalog)
+			if bool(result.get("success", false)):
+				technique_id = fallback_technique_id
+	if bool(result.get("success", false)):
+		character["has_technique"] = true
+		var character_index := _find_runtime_character_index(String(character_id))
+		if character_index != -1:
+			_runtime_characters[character_index] = character
+	return {
+		"related_ids": PackedStringArray([technique_id]),
+		"trace": {
+			"success": bool(result.get("success", false)),
+			"technique_id": technique_id,
+			"reason": str(result.get("reason", "")),
+		},
+	}
+
+
+func _apply_trade_item_action(character: Dictionary, character_id: StringName) -> Dictionary:
+	if _technique_service == null:
+		return {"related_ids": PackedStringArray(), "trace": {"success": false, "reason": "service_missing"}}
+	var inventory_service := _inventory_service()
+	if inventory_service == null or not inventory_service.has_method("add_item"):
+		return {"related_ids": PackedStringArray(), "trace": {"success": false, "reason": "inventory_missing"}}
+	var spend_cost := 10
+	var current_stones := int(_technique_service.get_character_spirit_stones(String(character_id)))
+	if current_stones < spend_cost:
+		return {"related_ids": PackedStringArray(), "trace": {"success": false, "reason": "not_enough_stones", "cost": spend_cost}}
+	_technique_service.set_character_spirit_stones(String(character_id), current_stones - spend_cost)
+	var item_id := _resolve_trade_item_id(character)
+	inventory_service.add_item(String(character_id), item_id, 1, "uncommon", [])
+	return {
+		"related_ids": PackedStringArray([item_id]),
+		"trace": {
+			"success": true,
+			"item_id": item_id,
+			"cost": spend_cost,
+			"stones_after": int(_technique_service.get_character_spirit_stones(String(character_id))),
+		},
+	}
+
+
+func _resolve_pending_npc_combats(current_hours: float) -> void:
+	if _pending_combat_actions.is_empty() or _combat_manager == null:
+		return
+	var remaining: Array[Dictionary] = []
+	for pending in _pending_combat_actions:
+		if not (pending is Dictionary):
+			continue
+		if bool((pending as Dictionary).get("player_combat", false)):
+			remaining.append((pending as Dictionary).duplicate(true))
+			continue
+		var actor_id := str(pending.get("actor_id", "")).strip_edges()
+		var actor_index := _find_runtime_character_index(actor_id)
+		var target_index := int(pending.get("target_index", -1))
+		if actor_index == -1 or target_index < 0 or target_index >= _runtime_characters.size() or actor_index == target_index:
+			continue
+		var actor: Dictionary = _runtime_characters[actor_index]
+		var target: Dictionary = _runtime_characters[target_index]
+		var participants: Array[CombatantData] = []
+		participants.append(_build_combatant_from_character(actor))
+		participants.append(_build_combatant_from_character(target))
+		var combat_result = _combat_manager.resolve_npc_combat_only(participants, _random)
+		if combat_result == null:
+			remaining.append(pending)
+			continue
+		var victor_id := str(combat_result.victor_id)
+		var loser_id := str(target.get("id", "")) if victor_id == str(actor.get("id", "")) else str(actor.get("id", ""))
+		_record_character_memory(victor_id, "battle_win", current_hours, [loser_id])
+		_record_character_memory(loser_id, "battle_loss", current_hours, [victor_id])
+		if _relationship_network != null:
+			_ensure_relationship_edge(StringName(victor_id), StringName(loser_id), &"enemy")
+			_ensure_relationship_edge(StringName(loser_id), StringName(victor_id), &"enemy")
+			_relationship_network.modify_favor(StringName(victor_id), StringName(loser_id), -8)
+			_relationship_network.modify_favor(StringName(loser_id), StringName(victor_id), -12)
+		if bool(pending.get("territory_contest", false)):
+			_pending_territory_actions.append({
+				"region_id": str(pending.get("region_id", "")),
+				"challenger_faction_id": str(pending.get("challenger_faction_id", "")),
+				"combat_result": combat_result,
+			})
+		if _event_log() != null:
+			_event_log().add_event({
+				"category": "npc_combat",
+				"title": "NPC 战斗已结算",
+				"actor_ids": [str(actor.get("id", "")), str(target.get("id", ""))],
+				"direct_cause": "challenge_npc",
+				"result": "胜者：%s，回合数：%d" % [victor_id, int(combat_result.turns_elapsed)],
+				"day": _time_service().day,
+				"minute_of_day": _time_service().minute_of_day,
+				"trace": {
+					"victor_id": victor_id,
+					"turns_elapsed": int(combat_result.turns_elapsed),
+				},
+			})
+	_pending_combat_actions = remaining
+
+
+func _resolve_pending_player_combats(current_hours: float) -> void:
+	if _pending_combat_actions.is_empty() or _combat_manager == null:
+		return
+	if _run_state() != null and StringName(str(_run_state().mode)) != &"human":
+		return
+	if not _active_player_combat_context.is_empty():
+		return
+	var run_state := _run_state()
+	if run_state != null and StringName(str(run_state.get("sub_phase"))) == &"combat":
+		return
+
+	for pending in _pending_combat_actions:
+		if not (pending is Dictionary):
+			continue
+		var pending_data: Dictionary = pending
+		if not bool(pending_data.get("player_combat", false)):
+			continue
+		var actor_id := str(pending_data.get("actor_id", "")).strip_edges()
+		if actor_id.is_empty():
+			continue
+		var actor_index := _find_runtime_character_index(actor_id)
+		var target_index := int(pending_data.get("target_index", -1))
+		if target_index < 0 or target_index >= _runtime_characters.size():
+			continue
+		if actor_index != -1 and actor_index == target_index:
+			continue
+		_start_player_combat_pending(pending_data, actor_index, target_index, current_hours)
+		return
+
+
+func _start_player_combat_pending(pending: Dictionary, player_index: int, target_index: int, current_hours: float) -> void:
+	var player_character: Dictionary = {}
+	if player_index >= 0 and player_index < _runtime_characters.size():
+		player_character = _runtime_characters[player_index]
+	else:
+		player_character = _build_player_character_from_human_runtime(str(pending.get("actor_id", "")))
+		if player_character.is_empty():
+			return
+	var target_character: Dictionary = _runtime_characters[target_index]
+	var target_region_id := str(target_character.get("region_id", "")).strip_edges()
+	if _combat_manager != null and _combat_manager.has_method("set_active_loot_table_id"):
+		_combat_manager.set_active_loot_table_id(_resolve_combat_loot_table_id_for_region(target_region_id))
+	var participants: Array[CombatantData] = []
+	var player_combatant: CombatantData = _build_player_combatant_data(player_character)
+	if player_combatant == null:
+		return
+	participants.append(player_combatant)
+	participants.append(_build_combatant_from_character(target_character))
+
+	var run_state := _run_state()
+	if run_state != null:
+		run_state.set_sub_phase(&"combat")
+		if run_state.has_method("clear_combat_result"):
+			run_state.clear_combat_result()
+		if run_state.has_method("set_combat_context"):
+			run_state.set_combat_context({
+				"status": "awaiting_player_action",
+				"actor_id": str(player_character.get("id", "")),
+				"actor_name": str(player_character.get("display_name", "玩家")),
+				"target_id": str(target_character.get("id", "")),
+				"target_name": str(target_character.get("display_name", "目标")),
+				"queued_hours": float(pending.get("queued_hours", current_hours)),
+				"day": _time_service().day,
+				"minute_of_day": _time_service().minute_of_day,
+			})
+
+	_active_player_combat_context = {
+		"pending": pending.duplicate(true),
+		"participants": participants,
+		"player_character_id": str(player_character.get("id", "")),
+		"target_character_id": str(target_character.get("id", "")),
+		"queued_hours": float(pending.get("queued_hours", current_hours)),
+		"current_hours": current_hours,
+	}
+
+
+func _on_player_combat_action_submitted(action: Dictionary) -> void:
+	if _active_player_combat_context.is_empty() or _combat_manager == null:
+		return
+	_pending_player_combat_action = _normalize_player_combat_action(action)
+	var participants_raw: Variant = _active_player_combat_context.get("participants", [])
+	if not (participants_raw is Array):
+		return
+	var participants: Array[CombatantData] = []
+	for participant_raw in participants_raw:
+		if participant_raw is CombatantData:
+			participants.append(participant_raw as CombatantData)
+	if participants.size() < 2:
+		return
+
+	_combat_manager.bind_player_action_resolver(Callable(self, "_resolve_player_combat_action"))
+	var combat_result = _combat_manager.start_combat(participants, _random)
+	_combat_manager.bind_player_action_resolver(Callable())
+	var context: Dictionary = _active_player_combat_context.duplicate(true)
+	_active_player_combat_context = {}
+	_pending_player_combat_action = {}
+	if combat_result == null:
+		return
+	_apply_player_combat_result(context, combat_result)
+
+
+func _resolve_player_combat_action(actor: CombatantData, participant_states: Array[Dictionary]) -> CombatActionData:
+	var combat_action := CombatActionDataScript.new()
+	var action_type := str(_pending_player_combat_action.get("action_type", "")).strip_edges()
+	if action_type.is_empty():
+		action_type = "attack"
+	combat_action.action_type = action_type
+	combat_action.technique_id = str(_pending_player_combat_action.get("technique_id", "")).strip_edges()
+	combat_action.item_id = str(_pending_player_combat_action.get("item_id", "")).strip_edges()
+
+	var requested_target_id := str(_pending_player_combat_action.get("target_id", "")).strip_edges()
+	if action_type == "item" or action_type == "flee":
+		combat_action.target_index = 0
+		return combat_action
+	combat_action.target_index = _resolve_player_target_index(requested_target_id, participant_states, actor.character_id)
+	return combat_action
+
+
+func _resolve_player_target_index(requested_target_id: String, participant_states: Array[Dictionary], actor_character_id: String) -> int:
+	for index in range(participant_states.size()):
+		var state_raw: Variant = participant_states[index]
+		if not (state_raw is Dictionary):
+			continue
+		var state: Dictionary = state_raw
+		if not bool(state.get("alive", false)):
+			continue
+		var character_id := str(state.get("character_id", ""))
+		if character_id == actor_character_id:
+			continue
+		if requested_target_id.is_empty() or character_id == requested_target_id:
+			return index
+	for index in range(participant_states.size()):
+		var state_raw: Variant = participant_states[index]
+		if not (state_raw is Dictionary):
+			continue
+		var state: Dictionary = state_raw
+		if not bool(state.get("alive", false)):
+			continue
+		var character_id := str(state.get("character_id", ""))
+		if character_id != actor_character_id:
+			return index
+	return 0
+
+
+func _apply_player_combat_result(context: Dictionary, combat_result: CombatResultData) -> void:
+	var run_state := _run_state()
+	var pending: Dictionary = context.get("pending", {})
+	var player_character_id := str(context.get("player_character_id", "")).strip_edges()
+	var target_character_id := str(context.get("target_character_id", "")).strip_edges()
+	var current_hours := float(context.get("current_hours", float(_time_service().total_hours)))
+
+	var fled := _is_player_combat_fled(combat_result, player_character_id)
+	var player_won := str(combat_result.victor_id) == player_character_id and not fled
+	var player_lost := not fled and str(combat_result.victor_id) != player_character_id
+
+	if fled:
+		_record_character_memory(player_character_id, "battle_fled", current_hours, [target_character_id])
+		_record_character_memory(target_character_id, "battle_enemy_fled", current_hours, [player_character_id])
+		if _relationship_network != null:
+			_ensure_relationship_edge(StringName(player_character_id), StringName(target_character_id), &"enemy")
+			_ensure_relationship_edge(StringName(target_character_id), StringName(player_character_id), &"enemy")
+			_relationship_network.modify_favor(StringName(player_character_id), StringName(target_character_id), -2)
+			_relationship_network.modify_favor(StringName(target_character_id), StringName(player_character_id), -1)
+	elif player_won:
+		_apply_player_combat_loot(player_character_id, combat_result)
+		_adjust_player_spirit_stones(player_character_id, 15)
+		_apply_player_combat_relation_and_memory(player_character_id, target_character_id, current_hours, true)
+	elif player_lost:
+		_adjust_player_spirit_stones(player_character_id, -30)
+		_apply_player_combat_relation_and_memory(player_character_id, target_character_id, current_hours, false)
+
+	if bool(pending.get("territory_contest", false)) and player_won:
+		_pending_territory_actions.append({
+			"region_id": str(pending.get("region_id", "")),
+			"challenger_faction_id": str(pending.get("challenger_faction_id", "")),
+			"combat_result": combat_result,
+		})
+
+	_pending_combat_actions = _remove_pending_player_combat(pending)
+
+	if run_state != null:
+		run_state.set_sub_phase(&"")
+		if run_state.has_method("clear_combat_context"):
+			run_state.clear_combat_context()
+		if run_state.has_method("set_combat_result"):
+			run_state.set_combat_result({
+				"player_character_id": player_character_id,
+				"target_character_id": target_character_id,
+				"victor_id": str(combat_result.victor_id),
+				"turns_elapsed": int(combat_result.turns_elapsed),
+				"fled": fled,
+				"result": "win" if player_won else "lose" if player_lost else "flee",
+				"loot": combat_result.loot.duplicate(true),
+				"participant_states": combat_result.participant_states.duplicate(true),
+			})
+
+	if _event_log() != null:
+		_event_log().add_event({
+			"category": "player_combat",
+			"title": "玩家战斗已结算",
+			"actor_ids": [player_character_id],
+			"related_ids": [target_character_id],
+			"direct_cause": "player_combat_resolved",
+			"result": _build_player_combat_result_text(player_character_id, target_character_id, player_won, player_lost, fled, combat_result),
+			"day": _time_service().day,
+			"minute_of_day": _time_service().minute_of_day,
+			"trace": {
+				"victor_id": str(combat_result.victor_id),
+				"turns_elapsed": int(combat_result.turns_elapsed),
+				"fled": fled,
+				"loot_count": combat_result.loot.size(),
+			},
+		})
+
+
+func _remove_pending_player_combat(pending: Dictionary) -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	for pending_item in _pending_combat_actions:
+		if not (pending_item is Dictionary):
+			continue
+		var item: Dictionary = pending_item
+		if bool(item.get("player_combat", false)) and str(item.get("actor_id", "")) == str(pending.get("actor_id", "")) and int(item.get("target_index", -1)) == int(pending.get("target_index", -1)):
+			continue
+		result.append(item)
+	return result
+
+
+func _build_player_combat_result_text(player_character_id: String, target_character_id: String, player_won: bool, player_lost: bool, fled: bool, combat_result: CombatResultData) -> String:
+	if fled:
+		return "%s 与 %s 战斗中选择撤离，成功脱战。" % [player_character_id, target_character_id]
+	if player_won:
+		return "%s 战胜 %s，历经 %d 回合。" % [player_character_id, target_character_id, int(combat_result.turns_elapsed)]
+	if player_lost:
+		return "%s 不敌 %s，历经 %d 回合。" % [player_character_id, target_character_id, int(combat_result.turns_elapsed)]
+	return "%s 与 %s 战斗结束。" % [player_character_id, target_character_id]
+
+
+func _is_player_combat_fled(combat_result: CombatResultData, player_character_id: String) -> bool:
+	if combat_result == null:
+		return false
+	var player_name := ""
+	if str(combat_result.victor_id) != "":
+		for state_raw in combat_result.participant_states:
+			if not (state_raw is Dictionary):
+				continue
+			var state: Dictionary = state_raw
+			if str(state.get("character_id", "")) != player_character_id:
+				continue
+			player_name = str(state.get("name", "")).strip_edges()
+			if bool(state.get("alive", false)):
+				return false
+	for line in combat_result.combat_log:
+		var text_line := str(line)
+		if text_line.contains("尝试逃跑并成功脱离战斗") and not player_name.is_empty() and text_line.contains(player_name):
+			return true
+	return false
+
+
+func _apply_player_combat_loot(player_character_id: String, combat_result: CombatResultData) -> void:
+	var inventory_service := _inventory_service()
+	if inventory_service == null or not inventory_service.has_method("add_item"):
+		return
+	for loot_entry_raw in combat_result.loot:
+		if not (loot_entry_raw is Dictionary):
+			continue
+		var loot_entry: Dictionary = loot_entry_raw
+		var item_id := str(loot_entry.get("item_id", "")).strip_edges()
+		var quantity := int(loot_entry.get("quantity", 0))
+		if item_id.is_empty() or quantity <= 0:
+			continue
+		inventory_service.add_item(
+			player_character_id,
+			item_id,
+			quantity,
+			str(loot_entry.get("rarity", "common")),
+			[]
+		)
+
+
+func _apply_player_combat_relation_and_memory(player_character_id: String, target_character_id: String, current_hours: float, player_won: bool) -> void:
+	if player_character_id.is_empty() or target_character_id.is_empty():
+		return
+	if _relationship_network != null:
+		_ensure_relationship_edge(StringName(player_character_id), StringName(target_character_id), &"enemy")
+		_ensure_relationship_edge(StringName(target_character_id), StringName(player_character_id), &"enemy")
+		_relationship_network.modify_favor(StringName(player_character_id), StringName(target_character_id), -10 if player_won else -6)
+		_relationship_network.modify_favor(StringName(target_character_id), StringName(player_character_id), -12 if player_won else -8)
+	_record_character_memory(player_character_id, "battle_win" if player_won else "battle_loss", current_hours, [target_character_id])
+	_record_character_memory(target_character_id, "battle_loss" if player_won else "battle_win", current_hours, [player_character_id])
+
+
+func _adjust_player_spirit_stones(player_character_id: String, delta: int) -> void:
+	if _technique_service == null or player_character_id.is_empty() or delta == 0:
+		return
+	var current := int(_technique_service.get_character_spirit_stones(player_character_id))
+	_technique_service.set_character_spirit_stones(player_character_id, maxi(0, current + delta))
+
+
+func _normalize_player_combat_action(action: Dictionary) -> Dictionary:
+	var action_type := str(action.get("action_type", "")).strip_edges()
+	if action_type != "attack" and action_type != "technique" and action_type != "item" and action_type != "flee":
+		action_type = "attack"
+	return {
+		"action_type": action_type,
+		"technique_id": str(action.get("technique_id", "")).strip_edges(),
+		"item_id": str(action.get("item_id", "")).strip_edges(),
+		"target_id": str(action.get("target_id", "")).strip_edges(),
+	}
+
+
+func _queue_player_challenge_action(character_id: StringName, current_hours: float, preferred_target_id: String = "") -> Dictionary:
+	var target_index := _pick_combat_target_index(character_id, preferred_target_id)
+	if target_index == -1:
+		return {"queued": false, "related_ids": PackedStringArray(), "target_id": "", "reason": "no_target"}
+	var target_character: Dictionary = _runtime_characters[target_index]
+	_pending_combat_actions.append({
+		"actor_id": String(character_id),
+		"target_index": target_index,
+		"queued_hours": current_hours,
+		"territory_contest": false,
+		"player_combat": true,
+	})
+	return {
+		"queued": true,
+		"related_ids": PackedStringArray([str(target_character.get("id", ""))]),
+		"target_id": str(target_character.get("id", "")),
+		"reason": "",
+	}
+
+
+func _build_player_combatant_data(character: Dictionary) -> CombatantData:
+	var combatant: CombatantData = _build_combatant_from_character(character)
+	if combatant == null:
+		return null
+	combatant.is_player = true
+	var player_id := str(character.get("id", "")).strip_edges()
+	if player_id.is_empty() and not _human_runtime.is_empty():
+		player_id = str(_human_runtime.get("player", {}).get("id", "human_player"))
+	if not _human_runtime.is_empty():
+		var player_runtime: Dictionary = _human_runtime.get("player", {})
+		var stats: Dictionary = player_runtime.get("combat_stats", {})
+		if not stats.is_empty():
+			combatant.max_hp = maxi(1, int(stats.get("max_hp", combatant.max_hp)))
+			combatant.current_hp = combatant.max_hp
+			combatant.attack = maxi(1, int(stats.get("attack", combatant.attack)))
+			combatant.defense = maxi(0, int(stats.get("defense", combatant.defense)))
+			combatant.speed = maxi(1, int(stats.get("speed", combatant.speed)))
+		var learned_techniques: Array = player_runtime.get("learned_techniques", [])
+		for learned_raw in learned_techniques:
+			if not (learned_raw is Dictionary):
+				continue
+			var learned: Dictionary = (learned_raw as Dictionary).duplicate(true)
+			if str(learned.get("equipped_slot", "")).strip_edges().is_empty():
+				continue
+			var technique_id := str(learned.get("technique_id", "")).strip_edges()
+			if technique_id.is_empty():
+				continue
+			combatant.equipped_techniques.append({
+				"technique_id": technique_id,
+				"cooldown": 0,
+				"current_cooldown": 0,
+				"display_name": technique_id,
+			})
+		var runtime_inventory: Array = player_runtime.get("inventory", [])
+		if not runtime_inventory.is_empty():
+			combatant.inventory_snapshot.clear()
+			for inventory_raw in runtime_inventory:
+				if inventory_raw is Dictionary:
+					combatant.inventory_snapshot.append((inventory_raw as Dictionary).duplicate(true))
+	combatant.character_id = player_id
+	combatant.name = str(character.get("display_name", _human_runtime.get("player", {}).get("display_name", player_id)))
+	return combatant
+
+
+func _build_player_character_from_human_runtime(player_id: String) -> Dictionary:
+	if _human_runtime.is_empty():
+		return {}
+	var player_runtime: Dictionary = _human_runtime.get("player", {})
+	var resolved_player_id := str(player_runtime.get("id", "")).strip_edges()
+	if not player_id.strip_edges().is_empty() and player_id.strip_edges() != resolved_player_id:
+		return {}
+	if resolved_player_id.is_empty():
+		return {}
+	return {
+		"id": resolved_player_id,
+		"display_name": str(player_runtime.get("display_name", "玩家")),
+		"cultivation_progress": float(player_runtime.get("cultivation_state", {}).get("progress", 0)),
+		"faction_id": str(player_runtime.get("sect_id", "")).strip_edges(),
+		"region_id": str(player_runtime.get("region_id", "")).strip_edges(),
+		"family_id": str(player_runtime.get("family_id", "")).strip_edges(),
+	}
+
+
+func _resolve_combat_loot_table_id_for_region(region_id: String) -> String:
+	if _catalog == null or not _catalog.has_method("find_loot_table"):
+		return ""
+	if region_id.contains("beast"):
+		if _catalog.find_loot_table(&"mvp_loot_beast_ridge") != null:
+			return "mvp_loot_beast_ridge"
+	if _catalog.find_loot_table(&"mvp_loot_village") != null:
+		return "mvp_loot_village"
+	if _catalog.find_loot_table(&"mvp_loot_beast_ridge") != null:
+		return "mvp_loot_beast_ridge"
+	return ""
+
+
+func _is_human_player_character_id(character_id: String) -> bool:
+	if character_id.strip_edges().is_empty() or _human_runtime.is_empty():
+		return false
+	var player_runtime: Dictionary = _human_runtime.get("player", {})
+	return str(player_runtime.get("id", "")).strip_edges() == character_id.strip_edges()
+
+
+func _get_human_player_id() -> String:
+	if _human_runtime.is_empty():
+		return ""
+	return str(_human_runtime.get("player", {}).get("id", "")).strip_edges()
+
+
+func _should_trigger_player_conflict(character_id: StringName) -> bool:
+	if _human_runtime.is_empty():
+		return false
+	var player_id := _get_human_player_id()
+	if player_id.is_empty() or StringName(player_id) == character_id:
+		return false
+	var player_region := str(_human_runtime.get("player", {}).get("region_id", "")).strip_edges()
+	if player_region.is_empty():
+		return false
+	var npc_index := _find_runtime_character_index(String(character_id))
+	if npc_index == -1:
+		return false
+	var npc_character: Dictionary = _runtime_characters[npc_index]
+	if str(npc_character.get("region_id", "")).strip_edges() != player_region:
+		return false
+	if _relationship_network == null:
+		return false
+	var edge = _relationship_network.get_edge(character_id, StringName(player_id))
+	if edge != null and (edge.relation_type == &"enemy" or int(edge.favor) <= -50):
+		return true
+	return false
+
+
+func _resolve_pending_territory_actions(_current_hours: float) -> void:
+	if _pending_territory_actions.is_empty() or _world_dynamics_service == null:
+		return
+	for pending in _pending_territory_actions:
+		if not (pending is Dictionary):
+			continue
+		var region_id := str(pending.get("region_id", "")).strip_edges()
+		var challenger_faction_id := str(pending.get("challenger_faction_id", "")).strip_edges()
+		var combat_result = pending.get("combat_result", null)
+		if region_id.is_empty() or challenger_faction_id.is_empty() or combat_result == null:
+			continue
+		_world_dynamics_service.contest_territory(region_id, challenger_faction_id, combat_result)
+	_pending_territory_actions.clear()
+
+
+func _pick_combat_target_index(actor_id: StringName, preferred_target_id: String = "") -> int:
+	var actor_character: Dictionary = {}
+	var resolved_preferred_target_id := preferred_target_id.strip_edges()
+	for character in _runtime_characters:
+		if StringName(str(character.get("id", ""))) == actor_id:
+			actor_character = character
+			break
+	if actor_character.is_empty():
+		return -1
+	if not resolved_preferred_target_id.is_empty():
+		for index in range(_runtime_characters.size()):
+			var preferred_character: Dictionary = _runtime_characters[index]
+			if StringName(str(preferred_character.get("id", ""))) == actor_id:
+				continue
+			if str(preferred_character.get("id", "")) == resolved_preferred_target_id:
+				return index
+	var actor_faction_id := str(actor_character.get("faction_id", "")).strip_edges()
+	for index in range(_runtime_characters.size()):
+		var other: Dictionary = _runtime_characters[index]
+		var other_id := StringName(str(other.get("id", "")))
+		if other_id == actor_id:
+			continue
+		var other_faction_id := str(other.get("faction_id", "")).strip_edges()
+		if not actor_faction_id.is_empty() and other_faction_id != actor_faction_id:
+			return index
+	for index in range(_runtime_characters.size()):
+		var other: Dictionary = _runtime_characters[index]
+		if StringName(str(other.get("id", ""))) != actor_id:
+			return index
+	return -1
+
+
+func _build_combatant_from_character(character: Dictionary):
+	var combatant = CombatantDataScript.new()
+	var character_id := str(character.get("id", "")).strip_edges()
+	combatant.character_id = character_id
+	combatant.name = str(character.get("display_name", character_id))
+	combatant.max_hp = 120 + int(round(float(character.get("cultivation_progress", 0.0))))
+	combatant.current_hp = combatant.max_hp
+	combatant.attack = 20 + int(round(float(character.get("cultivation_progress", 0.0)) * 0.2))
+	combatant.defense = 10 + int(round(float(character.get("cultivation_progress", 0.0)) * 0.15))
+	combatant.speed = 15 + int(round(float(character.get("cultivation_progress", 0.0)) * 0.1))
+	combatant.is_player = false
+	if _technique_service != null and _technique_service.has_method("get_technique_combat_skills"):
+		var skill_entries: Array = _technique_service.get_technique_combat_skills(character_id)
+		for skill_entry in skill_entries:
+			if skill_entry is Dictionary:
+				combatant.equipped_techniques.append((skill_entry as Dictionary).duplicate(true))
+	var inventory_service := _inventory_service()
+	if inventory_service != null and inventory_service.has_method("get_inventory"):
+		var inventory_snapshot: Array = inventory_service.get_inventory(character_id)
+		for record in inventory_snapshot:
+			if record is Dictionary:
+				combatant.inventory_snapshot.append((record as Dictionary).duplicate(true))
+	return combatant
+
+
+func _resolve_region_resource_type(region_id: String) -> String:
+	if _world_dynamics_service == null:
+		return ""
+	var state: Dictionary = _world_dynamics_service.get_region_state(region_id)
+	var stockpiles: Dictionary = state.get("resource_stockpiles", {})
+	for key_variant in stockpiles.keys():
+		var resource_type := str(key_variant)
+		if int(stockpiles[key_variant]) > 0:
+			return resource_type
+	return ""
+
+
+func _resolve_trade_item_id(character: Dictionary) -> String:
+	if _catalog == null:
+		return "mvp_item_basic_healing_pill"
+	var items: Array = _catalog.get_items_by_type("consumable")
+	if items.is_empty():
+		return "mvp_item_basic_healing_pill"
+	var region_id := str(character.get("region_id", "")).strip_edges()
+	if region_id.contains("sect"):
+		for item in items:
+			if item != null and str(_resource_get(item, "id", "")) == "mvp_item_basic_healing_pill":
+				return "mvp_item_basic_healing_pill"
+	return str(_resource_get(items[0], "id", "mvp_item_basic_healing_pill"))
+
+
+func _find_fallback_technique_id_for_character(character: Dictionary) -> String:
+	if _catalog == null or not _catalog.has_method("get"):
+		return ""
+	var all_techniques: Variant = _catalog.get("techniques")
+	if not (all_techniques is Array):
+		return ""
+	for technique_raw in all_techniques:
+		if technique_raw == null:
+			continue
+		var sect_exclusive_id := str(_resource_get(technique_raw, "sect_exclusive_id", "")).strip_edges()
+		if not sect_exclusive_id.is_empty() and sect_exclusive_id != str(character.get("faction_id", "")).strip_edges():
+			continue
+		var requirements: Variant = _resource_get(technique_raw, "learning_requirements", {})
+		if requirements is Dictionary and not (requirements as Dictionary).is_empty():
+			continue
+		return str(_resource_get(technique_raw, "id", "")).strip_edges()
+	return ""
+
+
+func _resolve_gather_item_id(resource_type: String) -> String:
+	var preferred_item_id := "mvp_item_spirit_stone"
+	match resource_type:
+		"spirit_stone":
+			preferred_item_id = "mvp_item_spirit_stone"
+		"herb":
+			preferred_item_id = "mvp_item_basic_healing_pill"
+		"beast_core":
+			preferred_item_id = "mvp_item_fire_essence"
+		_:
+			preferred_item_id = "mvp_item_spirit_stone"
+	if _catalog == null or not _catalog.has_method("find_item"):
+		return preferred_item_id
+	var found: Resource = _catalog.find_item(StringName(preferred_item_id))
+	if found != null:
+		return preferred_item_id
+	return "mvp_item_spirit_stone"
+
+
+func _record_character_memory(character_id: String, event_type: String, current_hours: float, related_ids: Array[String]) -> void:
+	if _memory_system == null or character_id.is_empty():
+		return
+	var entry := NpcMemoryEntryScript.new()
+	entry.event_id = StringName("npc_event_%s_%d" % [character_id, int(current_hours * 10.0)])
+	entry.event_type = StringName(event_type)
+	entry.timestamp_hours = current_hours
+	entry.importance = 6
+	entry.summary = "%s: %s" % [character_id, event_type]
+	var packed_related_ids := PackedStringArray()
+	for related_id in related_ids:
+		if not related_id.is_empty():
+			packed_related_ids.append(related_id)
+	entry.related_ids = packed_related_ids
+	_memory_system.add_memory(StringName(character_id), entry)
+
+
+func _ensure_relationship_edge(source_id: StringName, target_id: StringName, relation_type: StringName) -> void:
+	if _relationship_network == null or source_id == &"" or target_id == &"":
+		return
+	var existing = _relationship_network.get_edge(source_id, target_id)
+	if existing != null and existing.source_id == source_id and existing.target_id == target_id:
+		return
+	var edge := RelationshipEdgeScript.new()
+	edge.source_id = source_id
+	edge.target_id = target_id
+	edge.relation_type = relation_type
+	edge.favor = 0
+	edge.trust = 0
+	edge.interaction_count = 0
+	_relationship_network.add_edge(edge)
+
+
+func _find_runtime_character_index(character_id: String) -> int:
+	for index in range(_runtime_characters.size()):
+		if str(_runtime_characters[index].get("id", "")) == character_id:
+			return index
+	return -1
 
 
 func _initialize_npc_runtime_supports() -> void:
@@ -2198,6 +3446,37 @@ func _build_pause_report(advanced_days: int) -> Dictionary:
 	}
 
 
+func _build_default_rng_state(seed_value: int) -> Dictionary:
+	var fallback_seed := seed_value
+	if fallback_seed == 0:
+		fallback_seed = 1
+	var rng_channels: RefCounted = RNGChannelsScript.new()
+	rng_channels.seed_all(fallback_seed)
+	return _normalize_snapshot_value(rng_channels.save_state())
+
+
+func _apply_snapshot_service_states(snapshot_seed: int, inventory_data: Dictionary, technique_data: Dictionary, world_dynamics_data: Dictionary, crafting_data: Dictionary, rng_state_data: Dictionary) -> void:
+	var inventory_service := _inventory_service()
+	if inventory_service != null and inventory_service.has_method("load_state"):
+		inventory_service.load_state(inventory_data.duplicate(true))
+
+	if _technique_service != null and _technique_service.has_method("load_state"):
+		_technique_service.load_state(technique_data.duplicate(true))
+
+	if _world_dynamics_service != null and _world_dynamics_service.has_method("load_state") and not world_dynamics_data.is_empty():
+		_world_dynamics_service.load_state(world_dynamics_data.duplicate(true))
+
+	var crafting_service := _crafting_service()
+	if crafting_service != null and crafting_service.has_method("load_state"):
+		crafting_service.load_state(crafting_data.duplicate(true))
+
+	if _rng_channels != null and _rng_channels.has_method("load_state"):
+		var rng_payload: Dictionary = rng_state_data.duplicate(true)
+		if rng_payload.is_empty():
+			rng_payload = _build_default_rng_state(snapshot_seed)
+		_rng_channels.load_state(rng_payload)
+
+
 func _validate_snapshot_payload(snapshot: Dictionary) -> Dictionary:
 	if snapshot.is_empty():
 		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_ROOT_TYPE, {
@@ -2310,6 +3589,41 @@ func _validate_snapshot_payload(snapshot: Dictionary) -> Dictionary:
 			"actual_type": typeof(snapshot.get("npc_decision_intervals", null)),
 		})
 
+	if snapshot.has("inventory_data") and not snapshot.get("inventory_data", null) is Dictionary:
+		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
+			"field": "inventory_data",
+			"expected": "Dictionary",
+			"actual_type": typeof(snapshot.get("inventory_data", null)),
+		})
+
+	if snapshot.has("technique_data") and not snapshot.get("technique_data", null) is Dictionary:
+		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
+			"field": "technique_data",
+			"expected": "Dictionary",
+			"actual_type": typeof(snapshot.get("technique_data", null)),
+		})
+
+	if snapshot.has("world_dynamics_data") and not snapshot.get("world_dynamics_data", null) is Dictionary:
+		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
+			"field": "world_dynamics_data",
+			"expected": "Dictionary",
+			"actual_type": typeof(snapshot.get("world_dynamics_data", null)),
+		})
+
+	if snapshot.has("crafting_data") and not snapshot.get("crafting_data", null) is Dictionary:
+		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
+			"field": "crafting_data",
+			"expected": "Dictionary",
+			"actual_type": typeof(snapshot.get("crafting_data", null)),
+		})
+
+	if snapshot.has("rng_state") and not snapshot.get("rng_state", null) is Dictionary:
+		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
+			"field": "rng_state",
+			"expected": "Dictionary",
+			"actual_type": typeof(snapshot.get("rng_state", null)),
+		})
+
 	if snapshot.has("speed_tier") and not _is_integer_snapshot_number(snapshot.get("speed_tier", null)):
 		return _snapshot_result(false, SNAPSHOT_ERROR_INVALID_FIELD_TYPE, {
 			"field": "speed_tier",
@@ -2385,6 +3699,11 @@ func _validate_snapshot_payload(snapshot: Dictionary) -> Dictionary:
 		"memory_system": _normalize_snapshot_value(snapshot.get("memory_system", {})),
 		"npc_decision_intervals": _normalize_snapshot_value(snapshot.get("npc_decision_intervals", {})),
 		"speed_tier": int(snapshot.get("speed_tier", 2)),
+		"inventory_data": _normalize_snapshot_value(snapshot.get("inventory_data", {})),
+		"technique_data": _normalize_snapshot_value(snapshot.get("technique_data", {})),
+		"world_dynamics_data": _normalize_snapshot_value(snapshot.get("world_dynamics_data", {})),
+		"crafting_data": _normalize_snapshot_value(snapshot.get("crafting_data", {})),
+		"rng_state": _normalize_snapshot_value(snapshot.get("rng_state", _build_default_rng_state(int(snapshot.get("seed", _seed))))),
 		"log_cursor": {
 			"entry_count": expected_entry_count,
 			"last_entry_id": str(log_cursor.get("last_entry_id", "")),
@@ -2489,3 +3808,48 @@ func _location_service() -> Node:
 		return null
 	var tree := get_tree()
 	return tree.root.get_node_or_null("LocationService") if tree != null and tree.root != null else null
+
+func request_equip_technique(technique_id: String, slot: String) -> bool:
+	if _technique_service == null:
+		return false
+	var pid := _get_human_player_id()
+	if pid.is_empty():
+		return false
+	var success = _technique_service.equip_technique(pid, technique_id, slot)
+	if success:
+		_sync_player_techniques(pid)
+	return success
+
+func request_unequip_technique(slot: String) -> bool:
+	if _technique_service == null:
+		return false
+	var pid := _get_human_player_id()
+	if pid.is_empty():
+		return false
+	var success = _technique_service.unequip_technique(pid, slot)
+	if success:
+		_sync_player_techniques(pid)
+	return success
+
+func request_meditate_technique(technique_id: String, affix_index: int) -> Dictionary:
+	if _technique_service == null:
+		return {"success": false, "reason": "SERVICE_UNAVAILABLE"}
+	var pid := _get_human_player_id()
+	if pid.is_empty():
+		return {"success": false, "reason": "PLAYER_NOT_FOUND"}
+	var result = _technique_service.meditate_affix(pid, technique_id, affix_index, _rng_channels.get_loot_rng() if _rng_channels != null else null)
+	if result.get("success", false):
+		_sync_player_techniques(pid)
+	return result
+
+func _sync_player_techniques(pid: String) -> void:
+	if _technique_service == null:
+		return
+	var techniques = _technique_service.get_learned_techniques(pid)
+	for i in range(_runtime_characters.size()):
+		var c = _runtime_characters[i]
+		if str(c.get("id", "")) == pid:
+			var c_dup = c.duplicate(true)
+			c_dup["learned_techniques"] = techniques
+			_runtime_characters[i] = c_dup
+			break

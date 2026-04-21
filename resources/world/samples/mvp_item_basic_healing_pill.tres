@@ -1,0 +1,24 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_item_basic_healing_pill"
+display_name = "基础回春丹"
+summary = "凡品丹药，吞服后可温和恢复气血。"
+tags = PackedStringArray("item", "consumable", "pill", "mvp")
+human_visible = true
+deity_visible = true
+item_type = "consumable"
+rarity = "common"
+stack_size = 10
+base_value = 6
+equip_slot = ""
+stat_modifiers = {}
+affix_slots = 0
+element = "neutral"
+required_realm = 0
+consumable_effect = {
+"heal_hp": 30
+}

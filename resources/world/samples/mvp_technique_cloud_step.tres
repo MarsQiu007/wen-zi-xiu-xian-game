@@ -1,0 +1,35 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_technique_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_technique_cloud_step"
+display_name = "云步"
+summary = "灵品身法，借风势轻身腾挪，可快速拉开身位并提升闪避。"
+tags = PackedStringArray("technique", "movement_method", "wind", "mvp")
+human_visible = true
+deity_visible = true
+technique_type = "movement_method"
+element = "wind"
+rarity = "uncommon"
+min_realm = 1
+power_level = 3
+affix_slots = 2
+sect_exclusive_id = ""
+learning_requirements = {
+"agility": 20,
+"wind_affinity": 12
+}
+base_effects = {
+"dodge_bonus": 0.18,
+"initiative_bonus": 6,
+"mp_cost": 14
+}
+combat_skills = Array[Dictionary]([{
+"base_damage": 0,
+"cooldown": 2,
+"damage_type": "utility",
+"description": "化作残影位移，本回合提升闪避并下回合先攻。",
+"name": "踏云"
+}])

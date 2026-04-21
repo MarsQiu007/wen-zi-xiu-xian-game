@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/technique_affix.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+affix_id = "mvp_affix_clear_mind"
+affix_name = "清明"
+affix_category = "utility"
+effect = {
+"focus_gain": 0.15,
+"debuff_resist": 0.1
+}
+rarity = "rare"
+compatible_types = Array[String](["spirit_skill", "passive_method", "ultimate"])

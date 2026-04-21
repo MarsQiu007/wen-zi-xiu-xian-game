@@ -1,0 +1,25 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_crafting_recipe_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_recipe_iron_sword"
+display_name = "铁剑锻造图"
+summary = "以三份铁矿与一份火种锻造一柄基础铁剑。"
+tags = PackedStringArray("recipe", "forge", "mvp")
+human_visible = true
+deity_visible = true
+recipe_type = "forge"
+result_item_id = "mvp_item_iron_sword"
+result_quantity = 1
+result_rarity_min = "common"
+materials = Array[Dictionary]([{
+"item_id": "mvp_item_iron_ore",
+"quantity": 3
+}, {
+"item_id": "mvp_item_fire_essence",
+"quantity": 1
+}])
+required_skill_level = 2
+success_rate_base = 0.75

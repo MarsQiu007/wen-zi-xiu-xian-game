@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_item_fire_essence"
+display_name = "火华精粹"
+summary = "灵品火系材料，可用于炼器增幅火属性。"
+tags = PackedStringArray("item", "material", "fire", "forging", "mvp")
+human_visible = true
+deity_visible = true
+item_type = "material"
+rarity = "uncommon"
+stack_size = 99
+base_value = 18
+equip_slot = ""
+stat_modifiers = {}
+affix_slots = 0
+element = "fire"
+required_realm = 0
+consumable_effect = {}

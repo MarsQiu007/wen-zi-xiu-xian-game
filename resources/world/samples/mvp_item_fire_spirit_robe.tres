@@ -1,0 +1,24 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_item_fire_spirit_robe"
+display_name = "火灵法袍"
+summary = "灵品防具，内衬火纹灵丝，可稳固体表灵罡。"
+tags = PackedStringArray("item", "armor", "robe", "fire", "mvp")
+human_visible = true
+deity_visible = true
+item_type = "armor"
+rarity = "uncommon"
+stack_size = 1
+base_value = 80
+equip_slot = "body"
+stat_modifiers = {
+"defense": 15
+}
+affix_slots = 2
+element = "fire"
+required_realm = 1
+consumable_effect = {}

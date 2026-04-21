@@ -1,0 +1,24 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_item_sword_schematic"
+display_name = "铁剑炼制图"
+summary = "凡品图纸，记载基础铁剑锻造流程与材料配比。"
+tags = PackedStringArray("item", "schematic", "crafting", "mvp")
+human_visible = true
+deity_visible = true
+item_type = "schematic"
+rarity = "common"
+stack_size = 20
+base_value = 15
+equip_slot = ""
+stat_modifiers = {}
+affix_slots = 0
+element = "neutral"
+required_realm = 0
+consumable_effect = {
+"recipe_id": "mvp_recipe_iron_sword"
+}

@@ -1,0 +1,22 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_crafting_recipe_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_recipe_healing_pill"
+display_name = "基础回春丹配方"
+summary = "以三份灵草炼制一枚基础回春丹。"
+tags = PackedStringArray("recipe", "alchemy", "mvp")
+human_visible = true
+deity_visible = true
+recipe_type = "alchemy"
+result_item_id = "mvp_item_basic_healing_pill"
+result_quantity = 1
+result_rarity_min = "common"
+materials = Array[Dictionary]([{
+"item_id": "mvp_item_spirit_herb",
+"quantity": 3
+}])
+required_skill_level = 1
+success_rate_base = 0.85

@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/technique_affix.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+affix_id = "mvp_affix_thunder_pierce"
+affix_name = "雷穿"
+affix_category = "offensive"
+effect = {
+"critical_rate": 0.1,
+"penetration": 0.12
+}
+rarity = "rare"
+compatible_types = Array[String](["martial_skill", "ultimate"])

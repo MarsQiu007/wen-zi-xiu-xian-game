@@ -38,3 +38,10 @@
 - `RunState` 这类 Autoload 在独立 UI 脚本中应显式 `_bind_singletons()` 绑定，并在访问前判空（尤其是初始化流程 `start_init()`）。
 - `ui_root.gd` 的区域角色激活逻辑应在 `_refresh_roster()` 之后再做索引边界判断，避免 `_current_roster[i]` 越界。
 - 主菜单继续按钮只展示元信息时，使用 `SaveService.get_save_info()` 足够，避免调用 `load_game()` 触发全量反序列化与副作用。
+
+- QA(2026-04-21): 运行时验证默认存档可读取，`save_version=2`，并包含 `simulation_snapshot`。
+- QA(2026-04-21): 旧版 v1 存档加载后被迁移为 payload v2，数据中补齐 `inventory_data/technique_data/world_dynamics_data/crafting_data/rng_state`。
+- QA(2026-04-21): 背包页已呈现真实物品详情（示例: 铁剑、品质/数量/属性加成），不再是单纯占位文案。
+- QA(2026-04-21): 炼丹炼器页可访问，配方列表存在（`recipe_count=2`，首项 `[器] 铁剑锻造图`）。
+- QA(2026-04-21): `Continue` 路径可进入 `main_play`，状态栏显示 `阶段：main_play`，集成测试仍为 10/10 通过。
+- QA(2026-04-21): 在运行时注入物品后，背包页列表与详情可展示真实数据（示例含铁剑属性、品质与数量），炼丹炼器页列表包含 2 条配方。

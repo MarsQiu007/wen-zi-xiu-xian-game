@@ -1,0 +1,24 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_item_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_item_iron_sword"
+display_name = "铁剑"
+summary = "凡品制式长剑，适合初入修行者近身护身。"
+tags = PackedStringArray("item", "weapon", "mvp")
+human_visible = true
+deity_visible = true
+item_type = "weapon"
+rarity = "common"
+stack_size = 1
+base_value = 12
+equip_slot = "weapon"
+stat_modifiers = {
+"attack": 8
+}
+affix_slots = 0
+element = "neutral"
+required_realm = 0
+consumable_effect = {}

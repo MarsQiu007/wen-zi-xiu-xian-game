@@ -1,0 +1,37 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_loot_table_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_loot_beast_ridge"
+display_name = "兽岭掉落表"
+summary = "适用于兽岭与灵材丰饶山地的中阶掉落表。"
+tags = PackedStringArray("loot_table", "beast_ridge", "mvp")
+human_visible = true
+deity_visible = true
+entries = Array[Dictionary]([{
+"item_id": "mvp_item_beast_core",
+"weight": 45,
+"min_rarity": "uncommon",
+"max_rarity": "rare",
+"quantity_range": [1, 2]
+}, {
+"item_id": "mvp_item_fire_essence",
+"weight": 35,
+"min_rarity": "uncommon",
+"max_rarity": "rare",
+"quantity_range": [1, 2]
+}, {
+"item_id": "mvp_item_spirit_stone",
+"weight": 20,
+"min_rarity": "common",
+"max_rarity": "uncommon",
+"quantity_range": [2, 5]
+}])
+region_tags = ["beast_ridge", "mountain", "wild"]
+monster_tags = ["beast", "spirit_beast"]
+guaranteed_drops = Array[Dictionary]([{
+"item_id": "mvp_item_beast_core",
+"quantity_range": [1, 1]
+}])

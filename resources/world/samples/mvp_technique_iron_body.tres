@@ -1,0 +1,34 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_technique_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_technique_iron_body"
+display_name = "铁躯诀"
+summary = "凡品被动心法，锤炼筋骨与气血，提升抗打击能力。"
+tags = PackedStringArray("technique", "passive_method", "earth", "mvp")
+human_visible = true
+deity_visible = true
+technique_type = "passive_method"
+element = "earth"
+rarity = "common"
+min_realm = 0
+power_level = 2
+affix_slots = 1
+sect_exclusive_id = ""
+learning_requirements = {
+"constitution": 12
+}
+base_effects = {
+"defense_bonus": 6,
+"hp_bonus": 30,
+"mp_cost": 0
+}
+combat_skills = Array[Dictionary]([{
+"base_damage": 0,
+"cooldown": 0,
+"damage_type": "passive",
+"description": "被动生效：提高防御与生命上限。",
+"name": "铁骨护体"
+}])

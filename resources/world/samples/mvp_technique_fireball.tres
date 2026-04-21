@@ -1,0 +1,35 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_technique_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_technique_fireball"
+display_name = "火球术"
+summary = "灵品灵技，凝聚火行灵气成球，爆裂时造成范围灼烧。"
+tags = PackedStringArray("technique", "spirit_skill", "fire", "mvp")
+human_visible = true
+deity_visible = true
+technique_type = "spirit_skill"
+element = "fire"
+rarity = "uncommon"
+min_realm = 1
+power_level = 4
+affix_slots = 2
+sect_exclusive_id = ""
+learning_requirements = {
+"fire_root": 20,
+"spirit_sense": 15
+}
+base_effects = {
+"burn_chance": 0.2,
+"damage_multiplier": 1.35,
+"mp_cost": 18
+}
+combat_skills = Array[Dictionary]([{
+"base_damage": 42,
+"cooldown": 2,
+"damage_type": "fire",
+"description": "投掷火球，对目标造成火属性伤害并有概率附加灼烧。",
+"name": "炎弹"
+}])

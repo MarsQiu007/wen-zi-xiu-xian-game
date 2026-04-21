@@ -27,7 +27,10 @@ var _last_error_context: Dictionary = {}
 
 
 func save_game(data: Dictionary = {}) -> bool:
-	var result := save_slot(data, DEFAULT_SLOT_ID)
+	var payload: Dictionary = data
+	if not payload.has("simulation_snapshot") and payload.has("snapshot_version"):
+		payload = {"simulation_snapshot": payload}
+	var result := save_slot(payload, DEFAULT_SLOT_ID)
 	return result.get("ok", false)
 
 
@@ -229,9 +232,17 @@ func _validate_payload(payload: Dictionary, expected_slot_id: String) -> Diction
 			"expected": SAVE_PROTOCOL_VERSION
 		})
 	if save_version < SAVE_PROTOCOL_VERSION:
-		var migrated_data: Dictionary = SaveMigration.v1_to_v2(payload.get("data", {}))
+		var payload_data: Dictionary = payload.get("data", {})
+		var migrated_data: Dictionary = payload_data
+		if payload_data.has("simulation_snapshot") and payload_data["simulation_snapshot"] is Dictionary:
+			migrated_data = payload_data.duplicate(true)
+			var wrapped_snapshot: Dictionary = (payload_data["simulation_snapshot"] as Dictionary).duplicate(true)
+			migrated_data["simulation_snapshot"] = migrate_save(wrapped_snapshot, save_version)
+		else:
+			migrated_data = migrate_save(payload_data, save_version)
 		payload["data"] = migrated_data
 		payload["save_version"] = SAVE_PROTOCOL_VERSION
+		save_version = SAVE_PROTOCOL_VERSION
 
 	if not payload.has("slot_id"):
 		return _result(false, ERROR_MISSING_FIELD, {"field": "slot_id", "slot_id": expected_slot_id})

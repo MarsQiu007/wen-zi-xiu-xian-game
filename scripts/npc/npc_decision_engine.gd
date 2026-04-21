@@ -5,6 +5,7 @@ const BehaviorAction = preload("res://scripts/data/behavior_action.gd")
 const NpcBehaviorLibrary = preload("res://scripts/npc/npc_behavior_library.gd")
 const RelationshipNetwork = preload("res://scripts/npc/relationship_network.gd")
 const NpcMemorySystem = preload("res://scripts/npc/npc_memory_system.gd")
+const WorldDynamicsService = preload("res://scripts/services/world_dynamics_service.gd")
 
 const NEEDS_WEIGHT := 0.4
 const RELATIONSHIP_WEIGHT := 0.2
@@ -78,14 +79,15 @@ func decide_action(npc_state: Dictionary, context: Dictionary) -> Dictionary:
 
 func score_behaviors(npc_state: Dictionary, context: Dictionary, available_behaviors: Array[BehaviorAction]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
+	var normalized_state := _normalize_condition_state(npc_state, context)
 	var relationships: RefCounted = context.get("relationships", null)
 	var memories: RefCounted = context.get("memory_system", null)
 
 	for behavior in available_behaviors:
-		var needs_score := _score_by_needs(npc_state, behavior)
-		var relationship_score := _score_by_relationships(npc_state, behavior, relationships)
-		var memory_score := _score_by_memory(npc_state, behavior, memories)
-		var personality_score := _score_by_personality(npc_state, behavior)
+		var needs_score := _score_by_needs(normalized_state, behavior)
+		var relationship_score := _score_by_relationships(normalized_state, behavior, relationships)
+		var memory_score := _score_by_memory(normalized_state, behavior, memories)
+		var personality_score := _score_by_personality(normalized_state, behavior)
 		var total_score := needs_score * NEEDS_WEIGHT
 		total_score += relationship_score * RELATIONSHIP_WEIGHT
 		total_score += memory_score * MEMORY_WEIGHT
@@ -252,3 +254,162 @@ func _normalize_morality(morality: float) -> float:
 func _resolve_npc_id(npc_state: Dictionary, context: Dictionary) -> StringName:
 	var id_value = npc_state.get("npc_id", npc_state.get("id", context.get("npc_id", context.get("id", ""))))
 	return StringName(str(id_value))
+
+
+func _normalize_condition_state(npc_state: Dictionary, context: Dictionary) -> Dictionary:
+	var normalized: Dictionary = npc_state.duplicate(true)
+	if _check_has_region_resource(npc_state, context):
+		normalized["has_region_resource"] = true
+	if _check_has_technique_opportunity(npc_state, context):
+		normalized["has_technique_opportunity"] = true
+	if _check_has_grudge(npc_state, context):
+		normalized["has_grudge"] = true
+	if _check_own_territory_threatened(npc_state, context):
+		normalized["own_territory_threatened"] = true
+	if _check_faction_strong(npc_state, context):
+		normalized["faction_strong"] = true
+	if _check_faction_vs_rival_in_region(npc_state, context):
+		normalized["faction_vs_rival_in_region"] = true
+	if _check_adjacent_unclaimed(npc_state, context):
+		normalized["adjacent_unclaimed"] = true
+	return normalized
+
+
+func _check_has_region_resource(character: Dictionary, context: Dictionary) -> bool:
+	var world_dynamics: WorldDynamicsService = context.get("world_dynamics_service", null)
+	var region_id := str(character.get("region_id", "")).strip_edges()
+	if world_dynamics == null or region_id.is_empty():
+		return false
+	var state: Dictionary = world_dynamics.get_region_state(region_id)
+	if state.is_empty():
+		return false
+	var stockpiles: Dictionary = state.get("resource_stockpiles", {})
+	for value in stockpiles.values():
+		if int(value) > 0:
+			return true
+	return false
+
+
+func _check_has_technique_opportunity(character: Dictionary, context: Dictionary) -> bool:
+	if bool(character.get("has_technique", false)):
+		return false
+	var catalog: Resource = context.get("catalog", null)
+	if catalog == null:
+		return false
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	var sect_techniques: Array = catalog.get_techniques_by_sect(faction_id)
+	if not sect_techniques.is_empty():
+		return true
+	var techniques: Array = catalog.get("techniques") if catalog.has_method("get") else []
+	for technique in techniques:
+		if technique == null:
+			continue
+		var sect_exclusive_id := str(technique.get("sect_exclusive_id") if technique.has_method("get") else "").strip_edges()
+		if sect_exclusive_id.is_empty():
+			return true
+	return false
+
+
+func _check_has_grudge(character: Dictionary, context: Dictionary) -> bool:
+	var relationships: RelationshipNetwork = context.get("relationships", null)
+	if relationships == null:
+		return false
+	var npc_id := _resolve_npc_id(character, context)
+	if npc_id == &"":
+		return false
+	for edge in relationships.get_edges_for(npc_id):
+		if edge == null:
+			continue
+		if edge.relation_type == &"enemy" or int(edge.favor) <= -50:
+			return true
+	return false
+
+
+func _check_own_territory_threatened(character: Dictionary, context: Dictionary) -> bool:
+	var world_dynamics: WorldDynamicsService = context.get("world_dynamics_service", null)
+	if world_dynamics == null:
+		return false
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	if faction_id.is_empty():
+		return false
+	var territories: Array[String] = world_dynamics.get_faction_territories(faction_id)
+	if territories.is_empty():
+		return false
+	for region_id in territories:
+		var state: Dictionary = world_dynamics.get_region_state(region_id)
+		if state.is_empty():
+			continue
+		if float(state.get("danger_level", 0.0)) >= 0.6:
+			return true
+		var total_stock := 0
+		var stockpiles: Dictionary = state.get("resource_stockpiles", {})
+		for amount in stockpiles.values():
+			total_stock += maxi(0, int(amount))
+		if total_stock <= 20:
+			return true
+	return false
+
+
+func _check_faction_strong(character: Dictionary, context: Dictionary) -> bool:
+	var world_dynamics: WorldDynamicsService = context.get("world_dynamics_service", null)
+	if world_dynamics == null:
+		return false
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	if faction_id.is_empty():
+		return false
+	var territories: Array[String] = world_dynamics.get_faction_territories(faction_id)
+	if territories.size() < 2:
+		return false
+	var stable_regions := 0
+	for region_id in territories:
+		var state: Dictionary = world_dynamics.get_region_state(region_id)
+		if state.is_empty():
+			continue
+		if float(state.get("faction_modifier", 1.0)) >= 1.05 and float(state.get("danger_level", 0.0)) <= 0.6:
+			stable_regions += 1
+	return stable_regions >= 2
+
+
+func _check_faction_vs_rival_in_region(character: Dictionary, context: Dictionary) -> bool:
+	var world_dynamics: WorldDynamicsService = context.get("world_dynamics_service", null)
+	var relationships: RelationshipNetwork = context.get("relationships", null)
+	var region_id := str(character.get("region_id", "")).strip_edges()
+	var faction_id := str(character.get("faction_id", "")).strip_edges()
+	if world_dynamics == null or relationships == null or region_id.is_empty() or faction_id.is_empty():
+		return false
+	var state: Dictionary = world_dynamics.get_region_state(region_id)
+	if state.is_empty():
+		return false
+	var controlling_faction_id := str(state.get("controlling_faction_id", "")).strip_edges()
+	if controlling_faction_id.is_empty() or controlling_faction_id == faction_id:
+		return false
+	var npc_id := _resolve_npc_id(character, context)
+	if npc_id == &"":
+		return false
+	for edge in relationships.get_edges_for(npc_id):
+		if edge == null:
+			continue
+		if edge.relation_type == &"rival" or edge.relation_type == &"enemy" or int(edge.favor) <= -40:
+			return true
+	return false
+
+
+func _check_adjacent_unclaimed(character: Dictionary, context: Dictionary) -> bool:
+	var catalog: Resource = context.get("catalog", null)
+	var region_id := str(character.get("region_id", "")).strip_edges()
+	if catalog == null or not catalog.has_method("find_region") or region_id.is_empty():
+		return false
+	var region: Resource = catalog.find_region(StringName(region_id))
+	if region == null:
+		return false
+	var adjacent_ids: Variant = region.get("adjacent_region_ids")
+	if not (adjacent_ids is PackedStringArray):
+		return false
+	for adjacent_id_variant in adjacent_ids:
+		var adjacent_region: Resource = catalog.find_region(StringName(str(adjacent_id_variant)))
+		if adjacent_region == null:
+			continue
+		var controlling_faction_id := str(adjacent_region.get("controlling_faction_id")).strip_edges()
+		if controlling_faction_id.is_empty():
+			return true
+	return false

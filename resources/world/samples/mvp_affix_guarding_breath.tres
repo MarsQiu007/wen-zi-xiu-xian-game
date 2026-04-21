@@ -1,0 +1,15 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/technique_affix.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+affix_id = "mvp_affix_guarding_breath"
+affix_name = "守息"
+affix_category = "defensive"
+effect = {
+"block_rate": 0.08,
+"mp_cost_reduction": 0.1
+}
+rarity = "uncommon"
+compatible_types = Array[String](["passive_method", "spirit_skill"])

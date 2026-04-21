@@ -1,0 +1,36 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_technique_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_technique_sect_exclusive_azure_sword"
+display_name = "青岚镇岳剑"
+summary = "仙品宗门秘传剑术，仅青岚宗真传可修，剑势沉稳如岳，破防见长。"
+tags = PackedStringArray("technique", "martial_skill", "sword", "sect_exclusive", "mvp")
+human_visible = true
+deity_visible = true
+technique_type = "martial_skill"
+element = "wood"
+rarity = "mythic"
+min_realm = 3
+power_level = 8
+affix_slots = 3
+sect_exclusive_id = "faction_azure_sect"
+learning_requirements = {
+"disciple_rank": 3,
+"sword_qualification": 45,
+"wood_root": 30
+}
+base_effects = {
+"armor_break": 0.25,
+"damage_multiplier": 1.8,
+"mp_cost": 30
+}
+combat_skills = Array[Dictionary]([{
+"base_damage": 88,
+"cooldown": 3,
+"damage_type": "wood",
+"description": "凝聚青岚剑意重斩，造成高额伤害并削弱目标防御。",
+"name": "镇岳斩"
+}])

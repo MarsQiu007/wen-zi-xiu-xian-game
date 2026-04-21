@@ -1,0 +1,37 @@
+[gd_resource type="Resource" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/resources/world_loot_table_data.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = &"mvp_loot_village"
+display_name = "村落掉落表"
+summary = "适用于村落与小聚落周边的基础掉落表。"
+tags = PackedStringArray("loot_table", "village", "mvp")
+human_visible = true
+deity_visible = true
+entries = Array[Dictionary]([{
+"item_id": "mvp_item_spirit_stone",
+"weight": 60,
+"min_rarity": "common",
+"max_rarity": "uncommon",
+"quantity_range": [1, 3]
+}, {
+"item_id": "mvp_item_basic_healing_pill",
+"weight": 15,
+"min_rarity": "common",
+"max_rarity": "common",
+"quantity_range": [1, 1]
+}, {
+"item_id": "mvp_item_spirit_herb",
+"weight": 25,
+"min_rarity": "common",
+"max_rarity": "uncommon",
+"quantity_range": [1, 2]
+}])
+region_tags = ["village", "small_settlement"]
+monster_tags = ["wild_beast", "bandit"]
+guaranteed_drops = Array[Dictionary]([{
+"item_id": "mvp_item_spirit_stone",
+"quantity_range": [1, 1]
+}])

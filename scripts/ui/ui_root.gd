@@ -332,6 +332,7 @@ func _build_minimal_ui() -> void:
 	# --- Main Content Area (HSplitContainer) ---
 	var content_hsplit := HSplitContainer.new()
 	content_hsplit.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_hsplit.split_offset = 0
 	main_vbox.add_child(content_hsplit)
 
 	# --- Left Panel (ratio 3) ---
@@ -339,6 +340,7 @@ func _build_minimal_ui() -> void:
 	left_panel.name = "LeftPanel"
 	left_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left_panel.size_flags_stretch_ratio = 3.0
+	left_panel.custom_minimum_size = Vector2(280, 0)
 	content_hsplit.add_child(left_panel)
 	
 	var left_vbox := VBoxContainer.new()
@@ -354,7 +356,7 @@ func _build_minimal_ui() -> void:
 	
 	var avatar_rect := ColorRect.new()
 	avatar_rect.color = Color(0.3, 0.3, 0.4)
-	avatar_rect.custom_minimum_size = Vector2(80, 80)
+	avatar_rect.custom_minimum_size = Vector2(64, 64)
 	avatar_rect.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	npc_vbox.add_child(avatar_rect)
 	
@@ -414,7 +416,7 @@ func _build_minimal_ui() -> void:
 	for tab in tabs:
 		var btn := Button.new()
 		btn.text = tab["name"]
-		btn.custom_minimum_size = Vector2(0, 40)
+		btn.custom_minimum_size = Vector2(0, 32)
 		btn.pressed.connect(func(): _on_tab_button_pressed(tab["id"]))
 		_tab_button_box.add_child(btn)
 		_tab_buttons[tab["id"]] = btn
@@ -568,7 +570,7 @@ func _build_minimal_ui() -> void:
 	chars_vbox.add_child(chars_hsplit)
 	
 	_embedded_roster_list = ItemList.new()
-	_embedded_roster_list.custom_minimum_size = Vector2(150, 0)
+	_embedded_roster_list.custom_minimum_size = Vector2(140, 0)
 	_embedded_roster_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_embedded_roster_list.item_selected.connect(_on_embedded_roster_selected)
 	chars_hsplit.add_child(_embedded_roster_list)
@@ -581,6 +583,7 @@ func _build_minimal_ui() -> void:
 	_embedded_detail_label = RichTextLabel.new()
 	_embedded_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_embedded_detail_label.bbcode_enabled = true
+	_embedded_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	detail_vbox.add_child(_embedded_detail_label)
 	
 	var view_full_btn := Button.new()
@@ -669,7 +672,7 @@ func _build_minimal_ui() -> void:
 	inv_vbox.add_child(inv_hsplit)
 
 	_inventory_item_list = ItemList.new()
-	_inventory_item_list.custom_minimum_size = Vector2(260, 0)
+	_inventory_item_list.custom_minimum_size = Vector2(180, 0)
 	_inventory_item_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_inventory_item_list.item_selected.connect(_on_inventory_item_selected)
 	inv_hsplit.add_child(_inventory_item_list)
@@ -713,13 +716,13 @@ func _build_minimal_ui() -> void:
 
 	_inventory_equipment_label = RichTextLabel.new()
 	_inventory_equipment_label.bbcode_enabled = true
-	_inventory_equipment_label.custom_minimum_size = Vector2(0, 120)
+	_inventory_equipment_label.custom_minimum_size = Vector2(0, 100)
 	_inventory_equipment_label.text = "[b]- 已装备槽位 -[/b]\n暂无"
 	inv_summary_vbox.add_child(_inventory_equipment_label)
 
 	_inventory_stats_label = RichTextLabel.new()
 	_inventory_stats_label.bbcode_enabled = true
-	_inventory_stats_label.custom_minimum_size = Vector2(0, 140)
+	_inventory_stats_label.custom_minimum_size = Vector2(0, 100)
 	_inventory_stats_label.text = "[b]- 属性总览 -[/b]\n暂无"
 	inv_summary_vbox.add_child(_inventory_stats_label)
 
@@ -763,7 +766,7 @@ func _build_minimal_ui() -> void:
 	craft_vbox.add_child(craft_hsplit)
 	
 	_crafting_recipe_list = ItemList.new()
-	_crafting_recipe_list.custom_minimum_size = Vector2(250, 0)
+	_crafting_recipe_list.custom_minimum_size = Vector2(180, 0)
 	_crafting_recipe_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crafting_recipe_list.item_selected.connect(_on_crafting_recipe_selected)
 	craft_hsplit.add_child(_crafting_recipe_list)
@@ -776,6 +779,7 @@ func _build_minimal_ui() -> void:
 	_crafting_detail_label = RichTextLabel.new()
 	_crafting_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_crafting_detail_label.bbcode_enabled = true
+	_crafting_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	c_detail_vbox.add_child(_crafting_detail_label)
 	
 	var craft_btn_margin := MarginContainer.new()
@@ -812,7 +816,7 @@ func _build_minimal_ui() -> void:
 	tech_vbox.add_child(tech_hsplit)
 	
 	_technique_list = ItemList.new()
-	_technique_list.custom_minimum_size = Vector2(250, 0)
+	_technique_list.custom_minimum_size = Vector2(180, 0)
 	_technique_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_technique_list.item_selected.connect(_on_technique_item_selected)
 	tech_hsplit.add_child(_technique_list)
@@ -825,6 +829,7 @@ func _build_minimal_ui() -> void:
 	_technique_detail_label = RichTextLabel.new()
 	_technique_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_technique_detail_label.bbcode_enabled = true
+	_technique_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_technique_detail_label.text = "请选择左侧功法查看详情。"
 	tech_right_vbox.add_child(_technique_detail_label)
 	
@@ -873,7 +878,7 @@ func _build_minimal_ui() -> void:
 	trade_vbox.add_child(trade_hsplit)
 
 	_trade_goods_list = ItemList.new()
-	_trade_goods_list.custom_minimum_size = Vector2(250, 0)
+	_trade_goods_list.custom_minimum_size = Vector2(180, 0)
 	_trade_goods_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_trade_goods_list.item_selected.connect(_on_trade_item_selected)
 	trade_hsplit.add_child(_trade_goods_list)
@@ -886,6 +891,7 @@ func _build_minimal_ui() -> void:
 	_trade_detail_label = RichTextLabel.new()
 	_trade_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_trade_detail_label.bbcode_enabled = true
+	_trade_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_trade_detail_label.text = "请选择左侧物品查看详情。"
 	trade_right_vbox.add_child(_trade_detail_label)
 
@@ -910,8 +916,8 @@ func _build_minimal_ui() -> void:
 	# Combat Popup Panel (overlay, not a tab)
 	_combat_panel = PanelContainer.new()
 	_combat_panel.name = "CombatPopupPanel"
-	_combat_panel.set_anchors_preset(Control.PRESET_CENTER)
-	_combat_panel.custom_minimum_size = Vector2(600, 500)
+	_combat_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	_combat_panel.custom_minimum_size = Vector2(500, 400)
 	_combat_panel.hide()
 
 	var combat_style := StyleBoxFlat.new()
@@ -2416,7 +2422,7 @@ func _build_map_ui() -> void:
 	
 	# Left: Region Tree
 	var tree_vbox := VBoxContainer.new()
-	tree_vbox.custom_minimum_size = Vector2(250, 0)
+	tree_vbox.custom_minimum_size = Vector2(200, 0)
 	_map_hsplit.add_child(tree_vbox)
 	
 	var tree_title := Label.new()
@@ -2435,20 +2441,26 @@ func _build_map_ui() -> void:
 	_map_hsplit.add_child(right_vsplit)
 	
 	var info_vbox := VBoxContainer.new()
-	info_vbox.custom_minimum_size = Vector2(0, 150)
+	info_vbox.custom_minimum_size = Vector2(0, 200)
 	right_vsplit.add_child(info_vbox)
 	
 	var info_title := Label.new()
 	info_title.text = "- 区域情报与连通 -"
 	info_vbox.add_child(info_title)
 	
+	var detail_scroll := ScrollContainer.new()
+	detail_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	detail_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info_vbox.add_child(detail_scroll)
+	
 	_region_detail_label = RichTextLabel.new()
 	_region_detail_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_region_detail_label.bbcode_enabled = true
-	info_vbox.add_child(_region_detail_label)
+	_region_detail_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	detail_scroll.add_child(_region_detail_label)
 	
 	var chars_vbox := VBoxContainer.new()
-	chars_vbox.custom_minimum_size = Vector2(0, 200)
+	chars_vbox.custom_minimum_size = Vector2(0, 150)
 	right_vsplit.add_child(chars_vbox)
 	
 	var chars_title := Label.new()
